@@ -427,7 +427,7 @@ arg_replace(cmd, args, tail, new)
 			nargs = 0,		/* # of entries in args[][] */
 			ncmds = 0,		/* # of entries in cmd[][] */
 			ntail = 0,		/* # of entries in tail[][] */
-			quotes;			/* " quoted string toggle */
+			quotes = 0;		/* " quoted string toggle */
     char		*tick = NULL,		/* ' quoted string */
 			*ptr;
     register int	b, c, n;
@@ -879,7 +879,7 @@ shcmd(c, cmd)
     child	*c;
     char	**cmd;
 {
-    char	*sh[] = { "sh", "-c" },
+    char	*sh[] = { "sh", "-c", NULL },
 		*mashed[] = { NULL, NULL },
 		**new;
     int		status;
@@ -896,7 +896,7 @@ shcmd(c, cmd)
 		strerror(errno));
 	return(status);
     }
-    if ((status = arg_replace(sh, NULL, cmd, &new))) {
+    if ((status = arg_replace(sh, NULL, mashed, &new))) {
 	/* XXX: is this err msg always proper? will only ret true or ENOMEM? */
 	fprintf(errfp, "Error: memory allocation failed: %s\n",
 		strerror(errno));
@@ -1114,7 +1114,7 @@ run_cmd(c, cmd, args)
     char	**cmd,
 		**args;
 {
-    char	**newcmd;
+    char	**newcmd = NULL;
     int		e;
 
     if (c == NULL)
@@ -1132,11 +1132,11 @@ run_cmd(c, cmd, args)
     /* preform arg subsitution */
     if ((e = arg_replace(cmd, args, NULL, &newcmd)) == 0) {
 	if (i_opt) {
-	    e = xtermcmd(c, args);
+	    e = xtermcmd(c, newcmd);
 	} else if (e_opt) {
-	    e = execcmd(c, args);
+	    e = execcmd(c, newcmd);
 	} else
-	    e = shcmd(c, args);
+	    e = shcmd(c, newcmd);
 
 	arg_free(&newcmd);
     }
