@@ -101,9 +101,10 @@ AUTOMAKE_OPTIONS = foreign
 
 PREFIX = @prefix@
 
-bin_PROGRAMS = hpfilter par
+bin_PROGRAMS = control_rancid hpfilter par
+control_rancid_SOURCES = control_rancid.c util.c
 hpfilter_SOURCES = hpfilter.c
-par_SOURCES = par.c
+par_SOURCES = par.c util.c
 
 #CPPFLAGS += @PG_CPPFLAGS@
 #INCLUDES += -I$(top_srcdir)/include @PG_CPPFLAGS@
@@ -123,9 +124,8 @@ BIN_DATAS = @RD_BIN_DATAS@
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
 CONFIG_HEADER = ../include/config.h
 CONFIG_CLEAN_FILES =  alogin arancid blogin brancid cat5rancid clogin \
-control_rancid create_cvs do-diffs elogin env erancid f10rancid flogin \
-francid jlogin jrancid hlogin hrancid mrancid rancid-fe rancid rename \
-rrancid xrancid
+create_cvs do-diffs elogin env erancid f10rancid flogin francid jlogin \
+jrancid hlogin hrancid mrancid rancid-fe rancid rename rrancid xrancid
 PROGRAMS =  $(bin_PROGRAMS)
 
 
@@ -133,11 +133,15 @@ DEFS = @DEFS@ -I. -I$(srcdir) -I../include
 CPPFLAGS = @CPPFLAGS@
 LDFLAGS = @LDFLAGS@
 LIBS = @LIBS@
+control_rancid_OBJECTS =  control_rancid.o util.o
+control_rancid_LDADD = $(LDADD)
+control_rancid_DEPENDENCIES = 
+control_rancid_LDFLAGS = 
 hpfilter_OBJECTS =  hpfilter.o
 hpfilter_LDADD = $(LDADD)
 hpfilter_DEPENDENCIES = 
 hpfilter_LDFLAGS = 
-par_OBJECTS =  par.o
+par_OBJECTS =  par.o util.o
 par_LDADD = $(LDADD)
 par_DEPENDENCIES = 
 par_LDFLAGS = 
@@ -145,18 +149,19 @@ COMPILE = $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CF
 CCLD = $(CC)
 LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(LDFLAGS) -o $@
 DIST_COMMON =  Makefile.am Makefile.in alogin.in arancid.in blogin.in \
-brancid.in cat5rancid.in clogin.in control_rancid.in create_cvs.in \
-do-diffs.in elogin.in env.in erancid.in f10rancid.in flogin.in \
-francid.in hlogin.in hrancid.in jlogin.in jrancid.in mrancid.in \
-rancid-fe.in rancid.in rename.in rrancid.in xrancid.in
+brancid.in cat5rancid.in clogin.in create_cvs.in do-diffs.in elogin.in \
+env.in erancid.in f10rancid.in flogin.in francid.in hlogin.in \
+hrancid.in jlogin.in jrancid.in mrancid.in rancid-fe.in rancid.in \
+rename.in rrancid.in xrancid.in
 
 
 DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
 GZIP_ENV = --best
-DEP_FILES =  .deps/hpfilter.P .deps/par.P
-SOURCES = $(hpfilter_SOURCES) $(par_SOURCES)
-OBJECTS = $(hpfilter_OBJECTS) $(par_OBJECTS)
+DEP_FILES =  .deps/control_rancid.P .deps/hpfilter.P .deps/par.P \
+.deps/util.P
+SOURCES = $(control_rancid_SOURCES) $(hpfilter_SOURCES) $(par_SOURCES)
+OBJECTS = $(control_rancid_OBJECTS) $(hpfilter_OBJECTS) $(par_OBJECTS)
 
 all: all-redirect
 .SUFFIXES:
@@ -179,8 +184,6 @@ brancid: $(top_builddir)/config.status brancid.in
 cat5rancid: $(top_builddir)/config.status cat5rancid.in
 	cd $(top_builddir) && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
 clogin: $(top_builddir)/config.status clogin.in
-	cd $(top_builddir) && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
-control_rancid: $(top_builddir)/config.status control_rancid.in
 	cd $(top_builddir) && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
 create_cvs: $(top_builddir)/config.status create_cvs.in
 	cd $(top_builddir) && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
@@ -259,6 +262,10 @@ distclean-compile:
 	-rm -f *.tab.c
 
 maintainer-clean-compile:
+
+control_rancid: $(control_rancid_OBJECTS) $(control_rancid_DEPENDENCIES)
+	@rm -f control_rancid
+	$(LINK) $(control_rancid_LDFLAGS) $(control_rancid_OBJECTS) $(control_rancid_LDADD) $(LIBS)
 
 hpfilter: $(hpfilter_OBJECTS) $(hpfilter_DEPENDENCIES)
 	@rm -f hpfilter

@@ -72,19 +72,22 @@ FILE		*errfp,				/* stderr fp */
 		*logfile;			/* logfile */
 sigset_t	set_chld;			/* SIGCHLD {un}blocking */
 
-void		arg_free    __P((char ***));
-int		arg_replace __P((char *, char **, char **, char ***));
-int		execcmd     __P((child *, char **));
-void		reopenfds   __P((child *));
-void		run_cmd     __P((child *, char **));
-int		shcmd       __P((child *, char **));
-void		usage       __P((void));
-void		vers        __P((void));
-int		xtermcmd    __P((child *, char **));
-void		xtermlog    __P((child *));
+void		arg_free     __P((char ***));
+int		arg_replace  __P((char *, char **, char **, char ***));
+int		dispatch_cmd __P((char *, char **));
+int		execcmd      __P((child *, char **));
+int		line_split   __P((const char *, char ***));
+int		read_input   __P((char*, FILE **, int *, char **, char ***));
+void		reopenfds    __P((child *));
+int		run_cmd      __P((child *, char **));
+int		shcmd        __P((child *, char **));
+void		usage        __P((void));
+void		vers         __P((void));
+int		xtermcmd     __P((child *, char **));
+void		xtermlog     __P((child *));
 
-RETSIGTYPE	handler     __P((int));
-RETSIGTYPE	reapchild   __P((int));
+RETSIGTYPE	handler      __P((int));
+RETSIGTYPE	reapchild    __P((int));
 
 int
 main(int argc, char **argv, char **envp)
@@ -93,7 +96,11 @@ main(int argc, char **argv, char **envp)
     extern int		optind;
     char		ch;
     time_t		t;
-    int			i;
+    int			i,
+			line;
+    char		*cmd,			/* cmd (c_opt or from input) */
+			**args;			/* cmd argv */
+    FILE		*F;			/* input file */
 
     /* get just the basename() of our exec() name and strip .* off the end */
     if ((progname = strrchr(argv[0], '/')) != NULL)
@@ -251,8 +258,6 @@ main(int argc, char **argv, char **envp)
      * -f means just run the -c command -n times.  any args become "".
      */
     if (f_opt) {
-	char	**args;
-
 	if ((i = arg_replace(c_opt, NULL, NULL, &args))) {
 	    fprintf(errfp, "Error: failed to build command");
 	    if (i == ENOMEM)
@@ -267,16 +272,36 @@ main(int argc, char **argv, char **envp)
 	    }
 	    arg_free(&args);
 	}
-    } else {
+    } else if (ifile > 0) {
 	/*
-	 * if input files were specified on the command-line, use these as
-	 * input, else read stdin.
-	 *
-	 * if -c was not supplied, the command is the first line of each file.
-	 * if that line begins with a # and no -c was supplied, then each line
-	 * is a separate command with no argument replacement.
+	 * input files were specified on the command-line, read each as input
 	 */
-		/* XXX: replace {}s in c_opt */
+	F = NULL; cmd = NULL;  args = NULL;
+	for ( ; ifile < argc; ifile++) {
+	    while ((i = read_input(argv[ifile], &F, &line, &cmd, &args)) == 0) {
+		dispatch_cmd(cmd, args);
+		if (args != NULL)
+		    arg_free(&args);
+	    }
+	    /* XXX: if (i == EOF) */
+	    if (cmd != NULL)
+		free(cmd);
+	    if (args != NULL)
+		arg_free(&args);
+	}
+    } else {
+	/* read stdin as input */
+	F = stdin;
+	line = 1; cmd = NULL;  args = NULL;
+	while ((i = read_input("(stdin)", &F, &line, &cmd, &args)) == 0) {
+	    dispatch_cmd(cmd, args);
+	    if (args != NULL)
+		arg_free(&args);
+	}
+	if (cmd != NULL)
+	    free(cmd);
+	if (args != NULL)
+	    arg_free(&args);
     }
 
     /*
@@ -443,10 +468,10 @@ arg_replace(cmd, args, tail, newargs)
 		lcmd[l++] = cmd[c++];
 		lcmd[l++] = cmd[c++];
 	    } else {
-		if (cmd[c+1] == '\n') {
+		if (cmd[c+1] == 'n') {
 		    lcmd[l++] = '\n';
 		    c += 2;
-		} else if (cmd[c+1] == '\t') {
+		} else if (cmd[c+1] == 't') {
 		    lcmd[l++] = '\t';
 		    c += 2;
 		} else {
@@ -556,6 +581,166 @@ arg_replace(cmd, args, tail, newargs)
     }
 
     return(0);
+}
+
+/*
+ * split a line into an arg[][] with shell escape/quoting semantics.
+ */
+int
+line_split(line, args)
+    const char	*line;
+    char	***args;
+{
+    int		argn = 0,			/* current arg */
+		b,
+		c,
+		llen,				/* length of line */
+		len,
+		nargs = 0;
+    int		quotes = 0;			/* track double quotes */
+    char	*tick;				/* ptr to single quote */
+
+    /* temp buffer for a single arg. 2* as long as the buf used to read to
+     * reduce the chance of expansion exceeding the length of the buf
+     */
+    char	buf[LINE_MAX * 2];
+
+    if (args == NULL)
+	abort;
+
+    /* if line is NULL, just create arg[1][NULL] */
+    if (line == NULL) {
+        if ((*args = (char **) malloc(sizeof(char **))) == NULL)
+	    return(errno);
+	bzero(*args, sizeof(char **));
+    } else {
+	/* skip leading/trailing whitespace in line */
+        while (*line == ' ' || *line == '\t')
+	    line++;
+	llen = strlen(line);
+        while (line[llen] == ' ' || line[llen] == '\t' && llen > 0)
+	    llen--;
+
+	/*
+	 * just count spaces for args[][] malloc, this will waste memory when
+	 * spaces are in quoted args, but do not expect it to be a big deal.
+	 */
+	c = 0;
+	while (c < llen) {
+	    if (line[c] == ' ' || line[c] == '\t')
+		nargs++;
+	    c++;
+	}
+	/* gratuitous last arg and args[][NULL] */
+	nargs += 2;
+
+	if ((*args = (char **) malloc(sizeof(char **) * nargs)) == NULL)
+	    return(errno);
+	bzero(*args, sizeof(char **) * nargs);
+
+	/*
+	 * copy the args into place.
+	 * unwrap shell style quoting as we go.
+	 */
+	b = c = 0;
+	bzero(buf, LINE_MAX * 2);
+	while (c <= llen) {
+	    /* XXX: need to check buf len before anything */
+	    if ((LINE_MAX * 2) - b < 2)
+		return(ENOMEM);
+
+	    switch(line[c]) {
+	    case '\\':
+		if (quotes) {
+		    buf[b++] = line[c++];
+		    buf[b++] = line[c++];
+		} else {
+		    if (line[c + 1] == 'n') {
+			buf[b++] = '\n';
+			c += 2;
+		    } else if (line[c + 1] == 't') {
+			buf[b++] = '\t';
+			c += 2;
+		    } else {
+			buf[b++] = line[++c];
+			c += 2;
+		    }
+		}
+		break;
+	    case '\'':
+		/* shell preserves the meaning of all chars between single
+		 * quotes, including backslashes.  so, it is not possible to
+		 * put a single quote inside a single quoted string in shell.
+		 */
+		c++;
+		if ((tick = index(line + c, '\'')) == NULL) {
+		    /* unmatched quotes */
+		    return(EX_DATAERR);
+		}
+		len = tick - (line + c);
+		if ((b + len + 1) > (LINE_MAX * 2))
+		    return(ENOMEM);
+		bcopy(&line[c], &buf[b], len);
+		c += len + 1; b += len;
+		break;
+	    case '"':
+		/* the shell would recognize $, `, and \ in double-" strings.
+		 * by the time we get it, these chars should not exist and
+		 * thus we we ignore them.  all we deal with are \" and \n.
+		 */
+		quotes ^= 1;
+		c++;
+		break;
+	    case '\t':
+	    case ' ':
+	    case '\0':
+		/* the end of line, copy the last arg */
+		if (!quotes) {
+		    /* make a copy of the buffer for args[argn] */
+		    buf[b++] = '\0';
+		    if (asprintf(&((*args)[argn]), "%s", buf) == -1)
+			return(errno);
+		    argn++; c++; b = 0;
+		    buf[0] = '\0';
+		} else {
+		    if (line[c] == '\0')
+			/* unmatched quotes */
+			return(EX_DATAERR);
+		    buf[b++] = line[c++];
+		}
+		break;
+	    default:
+		buf[b++] = line[c++];
+	    }
+	}
+    }
+
+    return(0);
+}
+
+/*
+ * make cmd and arg strings into an args[][] for exec(), find a process
+ * slot (1 of n_opt) to run the command and use run_cmd() to start it.
+ */
+int
+dispatch_cmd(cmd, args)
+    char	*cmd,
+		**args;
+{
+    int		i;
+    static int	cmd_n = 1;
+
+    for (i = 0; i < n_opt; i++) {
+	if (progeny[i].pid != 0)
+	    continue;
+
+	progeny[i].n = cmd_n;
+			/* XXX: check retcode from *cmd()? */
+	return(run_cmd(&progeny[i], args));
+    }
+
+	/* XXX: is this right?  what could run_cmd() return? */
+    return(-1);
 }
 
 /*
@@ -748,23 +933,176 @@ shcmd(c, args)
 }
 
 /*
- * start a command.  basically, handle -f.
+ * if F is NULL, we open fname.
+ *
+ * read first line as a command and subsequent lines as either commands or
+ * args depending upon c_opt and the first line.  basically;
+ * - if the first char of the first line is ':', then what follows it is the
+ *   command.
+ * - if what follows is null, then the command is c_opt (-c) and subsequent
+ *   lines are args
+ * - if -c was not specified, then each subsequent line is a command without
+ *   arg substitution
+ * - if the ':' of the first line was ommitted, then we proceed as if it had
+ *   been but the command was empty
+ *
+ * return 0 on success, EOF at end of file, else errno with an errmsg in cmd.
+ * note: any space allocated for cmd or args must be free'd by the caller
+ *	 with free() or arg_free().
+ */
+int
+read_input(fname, F, line, cmd, args)
+    char	*fname;
+    FILE	**F;
+    int		*line;
+    char	**cmd;
+    char	***args;
+{
+    int		e;
+    char	buf[LINE_MAX + 1];
+
+    if (cmd == NULL || args == NULL)
+	abort();
+
+    if (*F == NULL) {
+	if (fname == NULL)
+	    abort();
+
+	if ((*F = fopen(fname, "r")) == NULL) {
+	    e = errno;
+	    asprintf(cmd, "Error: open(%s) failed: %s\n", fname, strerror(e));
+	    return(e);
+	}
+	*cmd = NULL;  *args = NULL;
+	*line = 1;
+    }
+
+    /* first line might be a command */
+    if (*line == 1) {
+	switch ((buf[0] = fgetc(*F))) {
+	case EOF:
+	    goto ERR;
+	    break;
+	case ':':
+	    if (fgets(buf, LINE_MAX + 1, *F) == NULL)
+		goto ERR;
+	    *line++;
+	    if (asprintf(cmd, "%s", buf) == -1) {
+		e = errno;
+		asprintf(cmd, "Error: %s\n", strerror(e));
+		return(e);
+	    }
+	    break;
+	default:
+	    ungetc(buf[0], *F);
+	    if (cmd == NULL && c_opt != NULL)
+		if (asprintf(cmd, "%s", c_opt) == -1) {
+		    e = errno;
+		    asprintf(cmd, "Error: %s\n", strerror(e));
+		    return(e);
+		}
+	}
+    }
+    if (fname == NULL)
+	fname = "(null)";
+
+NEXT:
+    /* next line */
+    if (fgets(buf, LINE_MAX + 1, *F) == NULL)
+	goto ERR;
+    *line++;
+    if (buf[0] == '#')
+	goto NEXT;
+
+    /*
+     * if there isnt a \n on the end, either we lacked buffer space or
+     * the last line of the file lacks a \n
+     */
+    e = strlen(buf);
+    if (buf[e - 1] == '\n') {
+	buf[e - 1] = '\0';
+    } /* else
+	/* XXX: finish this */
+
+    /* split the line into an args[][] */
+    if ((e = line_split(buf, args))) {
+	asprintf(cmd, "Error: parsing args: %s\n", strerror(e));
+	return(e);
+    }
+
+    return(0);
+
+ERR:
+    /* handle FILE error */
+    if (feof(*F)) {
+	e = EOF;
+    } else {
+	e = errno;
+	asprintf(cmd, "Error: read(%s) failed: %s\n", fname, strerror(e));
+    }
+    fclose(*F); *F = NULL;
+    return(e);
+}
+
+/*
+ * reassign stdout and stderr to the log file and stdin to /dev/null.
+ * called before exec()s.
  */
 void
+reopenfds(c)
+    child	*c;
+{
+    int		fd = STDERR_FILENO + 1;
+
+    /* stderr */
+    if (! q_opt) {
+	if (c->logfd != STDERR_FILENO) {
+	    if (dup2(c->logfd, STDERR_FILENO) == -1)
+		abort();
+	    close(c->logfd);
+	    c->logfd = STDERR_FILENO;
+	}
+	/* stdout */
+	if (dup2(c->logfd, STDOUT_FILENO) == -1)
+	    abort();
+    } else {
+	/* stderr */
+	if (dup2(devnull, STDERR_FILENO) == -1)
+	    abort();
+	/* stdout */
+	if (dup2(devnull, STDOUT_FILENO) == -1)
+	    abort();
+    }
+    /* stdin */
+    if (dup2(devnull, STDIN_FILENO) == -1)
+	abort();
+
+    /* close anything about stderr */
+    while (fd < 10)
+	close(fd++);
+
+    return;
+}
+
+/*
+ * start a command.
+ */
+int
 run_cmd(c, args)
     child	*c;
     char	**args;
 {
+    int		e;
 
     if (c == NULL)
 	return;
 
     if (i_opt) {
-	xtermcmd(c, args);
+	e = xtermcmd(c, args);
     } else if (e_opt) {
-	execcmd(c, args);
+	e = execcmd(c, args);
     } else {
-	shcmd(c, args);
+	e = shcmd(c, args);
     }
 
     if (p_opt) {
@@ -773,7 +1111,7 @@ run_cmd(c, args)
 	sigprocmask(SIG_UNBLOCK, &set_chld, NULL);
     }
 
-    return;
+    return(e);
 }
 
 /*
@@ -1002,46 +1340,6 @@ reapchild(sig)
 
     return;
 }   
-
-/*
- * reassign stdout and stderr to the log file and stdin to /dev/null.
- * called before exec()s.
- */
-void
-reopenfds(c)
-    child	*c;
-{
-    int		fd = STDERR_FILENO + 1;
-
-    /* stderr */
-    if (! q_opt) {
-	if (c->logfd != STDERR_FILENO) {
-	    if (dup2(c->logfd, STDERR_FILENO) == -1)
-		abort();
-	    close(c->logfd);
-	    c->logfd = STDERR_FILENO;
-	}
-	/* stdout */
-	if (dup2(c->logfd, STDOUT_FILENO) == -1)
-	    abort();
-    } else {
-	/* stderr */
-	if (dup2(devnull, STDERR_FILENO) == -1)
-	    abort();
-	/* stdout */
-	if (dup2(devnull, STDOUT_FILENO) == -1)
-	    abort();
-    }
-    /* stdin */
-    if (dup2(devnull, STDIN_FILENO) == -1)
-	abort();
-
-    /* close anything about stderr */
-    while (fd < 10)
-	close(fd++);
-
-    return;
-}
 
 void
 usage(void)

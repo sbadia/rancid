@@ -19,9 +19,10 @@ AUTOMAKE_OPTIONS=foreign
 
 PREFIX = @prefix@
 
-bin_PROGRAMS = hpfilter par
+bin_PROGRAMS = control_rancid hpfilter par
+control_rancid_SOURCES = control_rancid.c util.c
 hpfilter_SOURCES = hpfilter.c
-par_SOURCES = par.c
+par_SOURCES = par.c util.c
 
 #CPPFLAGS += @PG_CPPFLAGS@
 #INCLUDES += -I$(top_srcdir)/include @PG_CPPFLAGS@
