@@ -14,7 +14,8 @@
  *
  */
 
-#include <config.h>
+#ifndef UTIL_H
+#define UTIL_H
 
 #if ! HAVE_VASPRINTF
 # if HAVE_STDARG_H
@@ -23,4 +24,10 @@
 
 int		asprintf    __P((char **, char *, ...));
 int		vasprintf   __P((char **, char *, ...));
+
+		/* these are currently only used by {v}asprintf() */
+void		*xmalloc    __P((int));
+void		*xrealloc   __P((void **, int));
 #endif
+
+#endif	/* UTIL_H */
