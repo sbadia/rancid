@@ -1,5 +1,3 @@
-#! @EXPECT_PATH@ --
-##
 ## $Id$
 ##
 ## Copyright (C) 1997-2004 by Terrapin Communications, Inc.
@@ -22,6 +20,13 @@
 # The login expect scripts were based on Erik Sherk's gwtn, by permission.
 #
 #
+# This file is a generic handler to be included in other login scripts.
+# It contains CLI processing code and the .cloginrc reading logic.
+# There may come a time where it is useful to add platform specific cli
+# handlers. If that time comes it would be useful to create a proc to handle
+# it which would go in the -* argument matching.
+# For now this would be more headache than it's worth.
+#
 # Most options are intuitive for logging into a generic router.
 # The default is to enable (thus -noenable). Some platforms don't support
 # enabling/disabling and enable related flags are ignored. Some folks have
@@ -30,7 +35,8 @@
 # the process of enabling and the prompt will be the "#" prompt).
 # The default username password is the same as the vty password.
 #
-# Passphrase (ssh related) is not understood on most platforms.
+# Passphrase (ssh related) is not currently understood on most platforms,
+# a notable exception being Junipers.
 
 # Usage line
 set usage "Usage: $argv0 \[-autoenable\] \[-noenable\] \[-c command\] \
