@@ -73,12 +73,11 @@ FILE		*errfp,				/* stderr fp */
 sigset_t	set_chld;			/* SIGCHLD {un}blocking */
 
 void		arg_free     __P((char ***));
-int		arg_replace  __P((const char **, const char **, const char **,
-								char ***));
+int		arg_replace  __P((char **, char **, char **, char ***));
 int		dispatch_cmd __P((char **, char **));
 int		execcmd      __P((child *, char **));
 int		line_split   __P((const char *, char ***));
-int		read_input   __P((char*, FILE **, int *, char ***, char ***));
+int		read_input   __P((char *, FILE **, int *, char ***, char ***));
 void		reopenfds    __P((child *));
 int		run_cmd      __P((child *, char **, char **));
 int		shcmd        __P((child *, char **));
@@ -416,27 +415,28 @@ arg_mash(dst, src)
  *	  responsibility to free the space with arg_free().
  */
 int
-arg_replace(cmd, args, tail, newargs)
-    const char	**cmd,
-		**args,
-		**tail;
-    char	***newargs;
+arg_replace(cmd, args, tail, new)
+    char		**cmd,
+			**args,
+			**tail,
+			***new;
 {
-    int		argn = 0,			/* which arg[] is next */
-		len = 0,			/* length of cmd - leading sp */
-		linemax = LINE_MAX,
-		nargs = 0,			/* # of entries in args[][] */
-		ncmds = 0,			/* # of entries in cmd[][] */
-		ntail = 0,			/* # of entries in tail[][] */
-		quotes,				/* " quoted string toggle */
-		spaces = 0;			/* number of space in cmd */
+    int			argn = 0,		/* which arg[] is next */
+			len = 0,		/* length of cmd - leading sp */
+			linemax = LINE_MAX,
+			nargs = 0,		/* # of entries in args[][] */
+			ncmds = 0,		/* # of entries in cmd[][] */
+			ntail = 0,		/* # of entries in tail[][] */
+			quotes,			/* " quoted string toggle */
+			spaces = 0;		/* number of space in cmd */
     char	*lcmd,				/* local copy of cmd */
-		*tick = NULL,			/* ' quoted string */
-		*ptr;
-    register int	n, c;
+			*tick = NULL,		/* ' quoted string */
+			*ptr;
+    register int	n, c, t;
+    char		buf[LINE_MAX * 2];	/* temporary space */
 
-    /* if newargs is null, that is an internal error */
-    if (newargs == NULL || (cmd == NULL && args == NULL))
+    /* if new is null, that is an internal error */
+    if (new == NULL || (cmd == NULL && args == NULL))
 	abort();
 
     if (cmd != NULL)
@@ -450,19 +450,111 @@ arg_replace(cmd, args, tail, newargs)
 	    ntail++;
 
     /* create space for first_arg + spaces + last_arg + NULL terminator */
-    if ((*newargs = (char **)
+    if ((*new = (char **)
 			malloc(sizeof(char *) * (ncmds + ntail + 1))) == NULL)
 	return(ENOMEM);
-    bzero(*newargs, sizeof(char *) * (ncmds + ntail + 1));
+    bzero(*new, sizeof(char *) * (ncmds + ntail + 1));
 
     /*
      * now look through each cmd[][] for {}s and replace them, taking care to
      * follow shell quoting/escape semantics
      */
+    bzero(buf, LINE_MAX * 2);
     for (n = 0; n < ncmds; n++) {
-	c = 0;
-	
+	c = t = 0;
+	while (cmd[n][c] != '\0') {
+	    switch (cmd[n][c]) {
+#if 0
+	while (c <= llen) {
+	    /* XXX: need to check buf len before anything */
+	    if ((LINE_MAX * 2) - b < 2)
+		return(ENOMEM);
+
+	    switch(line[c]) {
+	    case '\\':
+		if (quotes) {
+		    buf[b++] = line[c++];
+		    buf[b++] = line[c++];
+		} else {
+		    if (line[c + 1] == 'n') {
+			buf[b++] = '\n';
+			c += 2;
+		    } else if (line[c + 1] == 't') {
+			buf[b++] = '\t';
+			c += 2;
+		    } else {
+			buf[b++] = line[++c];
+			c += 2;
+		    }
+		}
+		break;
+	    case '\'':
+		/* shell preserves the meaning of all chars between single
+		 * quotes, including backslashes.  so, it is not possible to
+		 * put a single quote inside a single quoted string in shell.
+		 */
+		c++;
+		if ((tick = index(line + c, '\'')) == NULL) {
+		    /* unmatched quotes */
+		    return(EX_DATAERR);
+		}
+		len = tick - (line + c);
+		if ((b + len + 1) > (LINE_MAX * 2))
+		    return(ENOMEM);
+		bcopy(&line[c], &buf[b], len);
+		c += len + 1; b += len;
+		break;
+	    case '"':
+		/* the shell would recognize $, `, and \ in double-" strings.
+		 * by the time we get it, these chars should not exist and
+		 * thus we we ignore them.  all we deal with are \" and \n.
+		 */
+		quotes ^= 1;
+		c++;
+		break;
+	    case '\t':
+	    case ' ':
+	    case '\0':
+		/* the end of line, copy the last arg */
+		if (!quotes) {
+		    /* make a copy of the buffer for args[argn] */
+		    buf[b++] = '\0';
+		    if (asprintf(&((*args)[argn]), "%s", buf) == -1)
+			return(errno);
+		    argn++; c++; b = 0;
+		    buf[0] = '\0';
+		} else {
+		    if (line[c] == '\0')
+			/* unmatched quotes */
+			return(EX_DATAERR);
+		    buf[b++] = line[c++];
+		}
+		break;
+	    default:
+		buf[b++] = line[c++];
+#endif
+	    default:
+;
+	    }
+	}
+	buf[t] = '\0';
+
+	/* copy the full arg */
+	if (asprintf((*new)[n], "%s", buf) == -1)
+	    return(errno);
     }
+
+    /* tack on tail[][], if any exist */
+    if (ntail) {
+	for (t = 0; t < ntail; t++) {
+	    if (asprintf((*new)[n], "%s", tail[t]) == -1)
+		return(errno);
+	    n++;
+	}
+    }
+
+    return(0);
+
 #if 0
     /* temporary buffer */
     len = strlen(cmd);
@@ -591,34 +683,7 @@ arg_replace(cmd, args, tail, newargs)
     }
     }
 
-    /* concatenate tail[][] on the end of lcmd */
-    if (tail != NULL) {
-	c = 0;
-	if (lcmd[l] == '\0')
-	    l++;
-	while (tail[c] != NULL) {
-	    len = strlen(tail[c]);
-	    while (l + len + 1 > linemax)
-		RE_MALLOC(lcmd, ptr, linemax);
-	    bcopy(tail[c++], &lcmd[l], len);
-	    l += len + 1;
-	}
-	spaces += c;
-    }
-
-    /* fill in newargs[][] */
-    c = argn = 0;
-    while (c < l) {
-	if (lcmd[c] != '\0') {
-	    (*newargs)[argn++] = lcmd + c;
-	    c += strlen(lcmd + c) + 1;
-	} else
-	    /* skip double+ spaces */
-	    c++;
-    }
 #endif
-
-    return(0);
 }
 
 /*
@@ -711,8 +776,7 @@ execcmd(c, cmd)
 	    fprintf(errfp, "\nStarting %d/%d %s: process id=%d\n",
 					c->n, n_opt, mashed[0], c->pid);
 	if (c->pid == -1) {
-	    fprintf(errfp, "Error: exec(%s) failed: %s\n",
-						cmd[0], strerror(errno));
+	    fprintf(errfp, "Error: fork() failed: %s\n", strerror(errno));
 	    waitpid(c->pid, &status, WNOHANG);
 	    c->pid = 0;
 	}
@@ -866,28 +930,28 @@ line_split(line, args)
  * sh -c.
  */
 int
-shcmd(c, args)
+shcmd(c, cmd)
     child	*c;
-    char	**args;
+    char	**cmd;
 {
-    char	*cmd = "sh -c",
+    char	*sh[] = { "sh", "-c" },
 		*mashed[] = { NULL, NULL },
-		**newargs;
+		**new;
     int		status;
     time_t	t;
 
     /* XXX: is this right? */
-    if (args == NULL)
+    if (cmd == NULL)
 	return(ENOEXEC);
 
-    /* build newargs */
-    if ((status = arg_mash(&mashed, args))) {
+    /* build new command */
+    if ((status = arg_mash(&mashed, cmd))) {
 	/* XXX: is this err msg always proper? will only ret true or ENOMEM? */
 	fprintf(errfp, "Error: memory allocation failed: %s\n",
 		strerror(errno));
 	return(status);
     }
-    if ((status = arg_replace(cmd, NULL, mashed, &newargs))) {
+    if ((status = arg_replace(sh, NULL, cmd, &new))) {
 	/* XXX: is this err msg always proper? will only ret true or ENOMEM? */
 	fprintf(errfp, "Error: memory allocation failed: %s\n",
 		strerror(errno));
@@ -898,10 +962,10 @@ shcmd(c, args)
     sigprocmask(SIG_BLOCK, &set_chld, NULL);
 
     if (c->logfile) {
+	char	*ct;
 	t = time(NULL);
-		/* XXX: build a complete cmd line */
-	cmd = ctime(&t); cmd[strlen(cmd) - 1] = '\0';
-	fprintf(c->logfile, "!!!!!!!\n!%s: %s\n!!!!!!!\n", cmd, mashed[0]);
+	ct = ctime(&t); ct[strlen(ct) - 1] = '\0';
+	fprintf(c->logfile, "!!!!!!!\n!%s: %s\n!!!!!!!\n", ct, mashed[0]);
 	fflush(c->logfile);
     }
 
@@ -915,17 +979,17 @@ shcmd(c, args)
 	/* reassign stdout and stderr to the log file, stdin to /dev/null */
 	reopenfds(c);
 
-	execvp(newargs[0], newargs);
+	execvp(new[0], new);
 
 	/* not reached, unless exec() fails */
-	fprintf(errfp, "Error: exec(xterm failed): %s\n", strerror(errno));
+	fprintf(errfp, "Error: exec(%s) failed: %s\n", new[0], strerror(errno));
 	exit(EX_UNAVAILABLE);
     } else {
 	if (debug)
 	    fprintf(errfp, "\nStarting %d/%d %s: process id=%d\n",
 					c->n, n_opt, mashed[0], c->pid);
 	if (c->pid == -1) {
-	    fprintf(errfp, "Error: exec(sh -c) failed: %s\n", strerror(errno));
+	    fprintf(errfp, "Error: fork() failed: %s\n", strerror(errno));
 	    waitpid(c->pid, &status, WNOHANG);
 	    c->pid = 0;
 	}
@@ -1109,7 +1173,7 @@ run_cmd(c, cmd, args)
     int		e;
 
     if (c == NULL)
-	return;
+	return(0);
 
     /* preform arg subsitution */
     if ((e = arg_replace(cmd, args, NULL, &newcmd)) == 0) {
@@ -1136,28 +1200,28 @@ run_cmd(c, cmd, args)
  * start a command in an interactive xterm.
  */
 int
-xtermcmd(c, args)
+xtermcmd(c, cmd)
     child	*c;
-    char	**args;
+    char	**cmd;
 {
-    char	*cmd = "xterm -e",
+    char	*xterm[] = { "xterm", "-e" },
 		*mashed[] = { NULL, NULL },
-		**newargs;
+		**new;
     int		status;
     time_t	t;
 
     /* XXX: is this right? */
-    if (args == NULL)
+    if (cmd == NULL)
 	return(ENOEXEC);
 
-    /* build newargs */
-    if ((status = arg_mash(&mashed, args))) {
+    /* build new command */
+    if ((status = arg_mash(&mashed, cmd))) {
 	/* XXX: is this err msg always proper? will only ret true or ENOMEM? */
 	fprintf(errfp, "Error: memory allocation failed: %s\n",
 		strerror(errno));
 	return(status);
     }
-    if ((status = arg_replace(cmd, NULL, args, &newargs))) {
+    if ((status = arg_replace(xterm, NULL, cmd, &new))) {
 	/* XXX: is this err msg always proper? will only ret true or ENOMEM? */
 	fprintf(errfp, "Error: memory allocation failed: %s\n",
 		strerror(errno));
@@ -1168,10 +1232,11 @@ xtermcmd(c, args)
     sigprocmask(SIG_BLOCK, &set_chld, NULL);
 
     if (c->logfile) {
+	char	*ct;
 	t = time(NULL);
 		/* XXX: build a complete cmd line */
-	cmd = ctime(&t); cmd[strlen(cmd) - 1] = '\0';
-	fprintf(c->logfile, "!!!!!!!\n!%s: %s\n!!!!!!!\n", cmd, mashed[0]);
+	ct = ctime(&t); ct[strlen(ct) - 1] = '\0';
+	fprintf(c->logfile, "!!!!!!!\n!%s: %s\n!!!!!!!\n", ct, mashed[0]);
 	fflush(c->logfile);
     }
 
@@ -1185,7 +1250,7 @@ xtermcmd(c, args)
 	/* reassign stdout and stderr to the log file, stdin to /dev/null */
 	reopenfds(c);
 
-	execvp(newargs[0], newargs);
+	execvp(new[0], new);
 
 	/* not reached, unless exec() fails */
 	fprintf(errfp, "Error: exec(xterm failed): %s\n", strerror(errno));
@@ -1195,7 +1260,7 @@ xtermcmd(c, args)
 	    fprintf(errfp, "\nStarting %d/%d %s: process id=%d\n",
 					c->n, n_opt, mashed[0], c->pid);
 	if (c->pid == -1) {
-	    fprintf(errfp, "Error: exec(sh -c) failed: %s\n", strerror(errno));
+	    fprintf(errfp, "Error: fork() failed: %s\n", strerror(errno));
 	    waitpid(c->pid, &status, WNOHANG);
 	    c->pid = 0;
 	}
@@ -1216,7 +1281,7 @@ void
 xtermlog(c)
     child	*c;
 {
-    char	*args[] = {	"xterm", "-e", "tail", "-f", NULL, NULL };
+    char	*cmd[] = {	"xterm", "-e", "tail", "-f", NULL, NULL };
     int		status;
 
     if (c->logfname == NULL || c->logfile == NULL) {
@@ -1224,7 +1289,7 @@ xtermlog(c)
 		"for par process\n");
 	return;
     }
-    args[4] = c->logfname;
+    cmd[4] = c->logfname;
 
     if ((c->xpid = fork()) == 0) {
 	/* child */
@@ -1239,14 +1304,14 @@ xtermlog(c)
 	 */
 	setpgid(0, getpid());
 
-	execvp(args[0], args);
+	execvp(cmd[0], cmd);
 
 	/* not reached, unless exec() fails */
-	fprintf(errfp, "Error: exec(xterm failed): %s\n", strerror(errno));
+	fprintf(errfp, "Error: exec(xterm) failed: %s\n", strerror(errno));
 	exit(EX_UNAVAILABLE);
     } else {
 	if (c->xpid == -1) {
-	    fprintf(errfp, "Error: exec(xterm) failed: %s\n", strerror(errno));
+	    fprintf(errfp, "Error: fork() failed: %s\n", strerror(errno));
 	    waitpid(c->xpid, &status, WNOHANG);
 	    c->xpid = 0;
 	    return;
