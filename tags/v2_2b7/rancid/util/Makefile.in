@@ -1,0 +1,36 @@
+PREFIX = @prefix@
+
+INSTALL = @INSTALL@
+INSTALL_DATA = @INSTALL_DATA@
+
+UTIL_PROGS = @RD_UTIL_PROGS@
+
+all:
+
+install: all
+	for file in $(UTIL_PROGS) ; do \
+	    $(INSTALL) $$file $(PREFIX)/util; \
+	done; \
+	for file in *README* *.exp; do \
+	    $(INSTALL_DATA) $$file $(PREFIX)/util; \
+	done; \
+	cd lg; $(MAKE) -e install
+
+clean:
+	@if [ -f util/Makefile ] ; then \
+	    cd lg; $(MAKE) -e clean; \
+	fi
+	rm -f Makefile $(UTIL_PROGS)
+
+distclean: clean
+	cd lg; $(MAKE) -e distclean;
+	rm -f config.log config.status
+
+distdir:
+	for file in Makefile.in configure.in *README* *.exp; do \
+	    $(INSTALL_DATA) $$file $(distdir); \
+	done; \
+	for file in configure $(UTIL_PROGS:=.in) ; do \
+	    $(INSTALL) $$file $(distdir); \
+	done; \
+	cd lg; $(MAKE) -e distdir
