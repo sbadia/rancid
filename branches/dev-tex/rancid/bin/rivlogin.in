@@ -30,6 +30,9 @@
 #
 # Returned to the RANCID crowd by andrew fort
 
+# rivlogin is so drastically different from the other login scripts that
+# I'm not modding it to use the login.top file at this time. 2004/12/24 - tex
+
 # Global vars section
 
 # program diagnostics
