@@ -27,6 +27,11 @@
 # it which would go in the -* argument matching.
 # For now this would be more headache than it's worth.
 #
+# This file is a .in file so that autoconf substitutions may be made to it.
+# However, at its time of creation there were no substitutions necessary, so
+# really all configure does is cat < $file.in > $file.out. This may or may
+# not change in the future.
+#
 # Most options are intuitive for logging into a generic router.
 # The default is to enable (thus -noenable). Some platforms don't support
 # enabling/disabling and enable related flags are ignored. Some folks have
