@@ -1,0 +1,60 @@
+#!/bin/sh
+##
+# do diffs for each of the diff groups ($LIST_OF_GROUPS) from <BASEDIR>/bin/env
+##
+
+ENVFILE="`dirname $0`/env"
+
+. $ENVFILE
+
+if [ $# -ge 1 ] ; then
+    LIST_OF_GROUPS="$*"; export LIST_OF_GROUPS
+elif [ "$LIST_OF_GROUPS" = "" ] ; then
+	echo "LIST_OF_GROUPS is empty in $ENVFILE"
+	exit 1
+fi
+
+if [ ! -d $BASEDIR/logs ] ; then
+	mkdir $BASEDIR/logs
+fi
+
+for GROUP in $LIST_OF_GROUPS
+do
+
+	LOCKFILE=$TMPDIR/.$GROUP.run.lock
+
+	(
+		echo starting: `date`
+		echo
+
+		if [ -f $LOCKFILE ]
+		then
+			echo hourly config diffs failed: $LOCKFILE exists
+			/bin/ls -l $LOCKFILE
+
+			# Send email if the lock file is old.
+			if [ "X$LOCKTIME" = "X" ] ; then
+				LOCKTIME=4
+			fi
+			perl -e "\$t = (stat(\"$LOCKFILE\"))[9]; print \"OLD\\n\" if (time() - \$t >= $LOCKTIME*60*60);" > $TMPDIR/.$GROUP.old
+			if [ -s $TMPDIR/.$GROUP.old ]
+			then
+				(
+					cat <<END
+rancid $GROUP hung on `hostname`?  Old lockfile still exists:
+`/bin/ls -l $LOCKFILE`
+END
+				) | Mail -s "rancid hung - $GROUP" rancid-admin-$GROUP
+			fi
+			rm -f $TMPDIR/.$GROUP.old
+
+		else
+			/usr/bin/touch $LOCKFILE
+			control_rancid $GROUP
+			/bin/rm -f $LOCKFILE
+		fi
+
+		echo
+		echo ending: `date`
+	) >$BASEDIR/logs/$GROUP.`date +%Y%m%d.%H%M%S` 2>&1 
+done
