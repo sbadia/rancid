@@ -73,13 +73,14 @@ FILE		*errfp,				/* stderr fp */
 sigset_t	set_chld;			/* SIGCHLD {un}blocking */
 
 void		arg_free     __P((char ***));
-int		arg_replace  __P((char *, char **, char **, char ***));
-int		dispatch_cmd __P((char *, char **));
+int		arg_replace  __P((const char **, const char **, const char **,
+								char ***));
+int		dispatch_cmd __P((char **, char **));
 int		execcmd      __P((child *, char **));
 int		line_split   __P((const char *, char ***));
-int		read_input   __P((char*, FILE **, int *, char **, char ***));
+int		read_input   __P((char*, FILE **, int *, char ***, char ***));
 void		reopenfds    __P((child *));
-int		run_cmd      __P((child *, char **));
+int		run_cmd      __P((child *, char **, char **));
 int		shcmd        __P((child *, char **));
 void		usage        __P((void));
 void		vers         __P((void));
@@ -98,7 +99,7 @@ main(int argc, char **argv, char **envp)
     time_t		t;
     int			i,
 			line;
-    char		*cmd,			/* cmd (c_opt or from input) */
+    char		**cmd,			/* cmd (c_opt or from input) */
 			**args;			/* cmd argv */
     FILE		*F;			/* input file */
 
@@ -258,7 +259,7 @@ main(int argc, char **argv, char **envp)
      * -f means just run the -c command -n times.  any args become "".
      */
     if (f_opt) {
-	if ((i = arg_replace(c_opt, NULL, NULL, &args))) {
+	if ((i = line_split(c_opt, &cmd))) {
 	    fprintf(errfp, "Error: failed to build command");
 	    if (i == ENOMEM)
 		fprintf(errfp, ": %s\n", strerror(errno));
@@ -268,24 +269,23 @@ main(int argc, char **argv, char **envp)
 	    for (i = 0; i < n_opt; i++) {
 		progeny[i].n = i + 1;
 			/* XXX: check retcode from *cmd()? */
-		run_cmd(&progeny[i], args);
+		run_cmd(&progeny[i], cmd, args);
 	    }
 	    arg_free(&args);
 	}
     } else if (ifile > 0) {
-	/*
-	 * input files were specified on the command-line, read each as input
-	 */
-	F = NULL; cmd = NULL;  args = NULL;
+	/* input files were specified on the command-line, read each as input */
+	F = NULL; cmd = NULL; args = NULL;
 	for ( ; ifile < argc; ifile++) {
 	    while ((i = read_input(argv[ifile], &F, &line, &cmd, &args)) == 0) {
-		dispatch_cmd(cmd, args);
+		while (dispatch_cmd(cmd, args) == EAGAIN)
+		    pause();
 		if (args != NULL)
 		    arg_free(&args);
 	    }
 	    /* XXX: if (i == EOF) */
 	    if (cmd != NULL)
-		free(cmd);
+		arg_free(&cmd);
 	    if (args != NULL)
 		arg_free(&args);
 	}
@@ -294,12 +294,13 @@ main(int argc, char **argv, char **envp)
 	F = stdin;
 	line = 1; cmd = NULL;  args = NULL;
 	while ((i = read_input("(stdin)", &F, &line, &cmd, &args)) == 0) {
-	    dispatch_cmd(cmd, args);
+	    while (dispatch_cmd(cmd, args) == EAGAIN)
+		pause();
 	    if (args != NULL)
 		arg_free(&args);
 	}
 	if (cmd != NULL)
-	    free(cmd);
+	    arg_free(&cmd);
 	if (args != NULL)
 	    arg_free(&args);
     }
@@ -344,6 +345,27 @@ main(int argc, char **argv, char **envp)
 }
 
 /*
+ * free space in and of a char[][] from line_split()/arg_replace()
+ */
+void
+arg_free(newargs)
+    char	***newargs;
+{
+    int		i;
+
+    if (newargs == NULL || *newargs == NULL)
+	return;
+
+    for (i = 0; (*newargs)[i] != NULL; i++)
+	free(&(*newargs)[i]);
+
+    free(*newargs);
+    *newargs = NULL;
+
+    return;
+}
+
+/*
  * arg to sh -c used in shcmd() must be 1 argument.  returns 0 else errno.
  *
  * NOTE: dst[][] is assumed to have 2 spaces of which [0][] will be used. the
@@ -379,9 +401,9 @@ arg_mash(dst, src)
 }
 
 /*
- * takes a command string (cmd) like "echo {}" whose args are stored in a
- * NULL terminated args[][] and sequentially replaces {}s from args[][]. any
- * {}s not matching up to an arg are replaced with "".
+ * takes a NULL terminated command (cmd[][]) like {"echo", "{}"} whose args
+ * are stored in a NULL terminated args[][] and sequentially replaces {}s
+ * from args[][].  any {}s not matching up to an arg are replaced with "".
  *
  * args found in tail[][] are concatenated to the end newargs[][] without any
  * interpretation.
@@ -395,30 +417,53 @@ arg_mash(dst, src)
  */
 int
 arg_replace(cmd, args, tail, newargs)
-    char	*cmd,
+    const char	**cmd,
 		**args,
-		**tail,
-		***newargs;
+		**tail;
+    char	***newargs;
 {
-    int		argn = 0,
+    int		argn = 0,			/* which arg[] is next */
 		len = 0,			/* length of cmd - leading sp */
 		linemax = LINE_MAX,
-		nargs,				/* # of args in args[][] */
+		nargs = 0,			/* # of entries in args[][] */
+		ncmds = 0,			/* # of entries in cmd[][] */
+		ntail = 0,			/* # of entries in tail[][] */
 		quotes,				/* " quoted string toggle */
 		spaces = 0;			/* number of space in cmd */
     char	*lcmd,				/* local copy of cmd */
 		*tick = NULL,			/* ' quoted string */
 		*ptr;
-    register int	c, l;
+    register int	n, c;
 
     /* if newargs is null, that is an internal error */
     if (newargs == NULL || (cmd == NULL && args == NULL))
 	abort();
 
+    if (cmd != NULL)
+	while (cmd[ncmds] != NULL)
+	    ncmds++;
     if (args != NULL)
 	while (args[nargs] != NULL)
 	    nargs++;
+    if (tail != NULL)
+	while (tail[ntail] != NULL)
+	    ntail++;
 
+    /* create space for first_arg + spaces + last_arg + NULL terminator */
+    if ((*newargs = (char **)
+			malloc(sizeof(char *) * (ncmds + ntail + 1))) == NULL)
+	return(ENOMEM);
+    bzero(*newargs, sizeof(char *) * (ncmds + ntail + 1));
+
+    /*
+     * now look through each cmd[][] for {}s and replace them, taking care to
+     * follow shell quoting/escape semantics
+     */
+    for (n = 0; n < ncmds; n++) {
+	c = 0;
+	
+    }
+#if 0
     /* temporary buffer */
     len = strlen(cmd);
     linemax = linemax > (len + 1) ? linemax : linemax * 2;
@@ -561,14 +606,6 @@ arg_replace(cmd, args, tail, newargs)
 	spaces += c;
     }
 
-    /* create space for first_arg + spaces + last_arg + NULL terminator */
-    if ((*newargs = (char **) malloc(sizeof(char *) * (spaces + 3))) == NULL) {
-	if (lcmd != NULL)
-	   free(lcmd);
-	return(ENOMEM);
-    }
-    bzero(*newargs, sizeof(char *) * (spaces + 3));
-
     /* fill in newargs[][] */
     c = argn = 0;
     while (c < l) {
@@ -579,6 +616,113 @@ arg_replace(cmd, args, tail, newargs)
 	    /* skip double+ spaces */
 	    c++;
     }
+#endif
+
+    return(0);
+}
+
+/*
+ * find a child/process slot (1 of n_opt) to run the command and use
+ * run_cmd() to start it.
+ *
+ * returns EAGAIN if there were no available child slots else the return
+ * value from run_cmd.  0 means success in dispatching the command.
+ */
+int
+dispatch_cmd(cmd, args)
+    char	**cmd,
+		**args;
+{
+    char	**cmds;
+    int		i;
+    static int	cmd_n = 1;
+
+    /* block sigchld while we search the child table */
+    sigprocmask(SIG_BLOCK, &set_chld, NULL);
+
+    for (i = 0; i < n_opt; i++) {
+	if (progeny[i].pid != 0)
+	    continue;
+
+	progeny[i].n = cmd_n;
+
+	sigprocmask(SIG_UNBLOCK, &set_chld, NULL);
+	return(run_cmd(&progeny[i], cmd, args));
+    }
+
+    sigprocmask(SIG_UNBLOCK, &set_chld, NULL);
+
+    return(EAGAIN);
+}
+
+/*
+ * start a command via an exec, after breaking up the arguments
+ */
+int
+execcmd(c, cmd)
+    child	*c;
+    char	**cmd;
+{
+    char	*mashed[] = { NULL, NULL };
+    int		status;
+    time_t	t;
+
+    /* XXX: is this right? */
+    if (cmd == NULL)
+	return(ENOEXEC);
+
+    /* build cmd string for logs */
+    if ((status = arg_mash(&mashed, cmd))) {
+	/* XXX: is this err msg always proper? will only ret true or ENOMEM? */
+	fprintf(errfp, "Error: memory allocation failed: %s\n",
+		strerror(errno));
+	return(status);
+    }
+
+    /* block sigchld so we quickly reap it ourselves */
+    sigprocmask(SIG_BLOCK, &set_chld, NULL);
+
+    if (c->logfile) {
+	char	*ct;
+	t = time(NULL);
+		/* XXX: build a complete cmd line */
+	ct = ctime(&t); ct[strlen(ct) - 1] = '\0';
+	fprintf(c->logfile, "!!!!!!!\n!%s: %s\n!!!!!!!\n", ct, mashed[0]);
+	fflush(c->logfile);
+    }
+
+    if ((c->pid = fork()) == 0) {
+	/* child */
+	signal(SIGCHLD, SIG_DFL);
+        sigprocmask(SIG_UNBLOCK, &set_chld, NULL);
+	if (debug > 1) {
+	    fprintf(errfp, "fork(sh -c %s ...) pid %d\n", mashed[0], getpid());
+	}
+	/* reassign stdout and stderr to the log file, stdin to /dev/null */
+	reopenfds(c);
+
+	execvp(cmd[0], cmd);
+
+	/* not reached, unless exec() fails */
+	fprintf(errfp, "Error: exec(%s) failed: %s\n", cmd[0], strerror(errno));
+		/* XXX: should we return errno instead? */
+	exit(EX_UNAVAILABLE);
+    } else {
+	if (debug)
+	    fprintf(errfp, "\nStarting %d/%d %s: process id=%d\n",
+					c->n, n_opt, mashed[0], c->pid);
+	if (c->pid == -1) {
+	    fprintf(errfp, "Error: exec(%s) failed: %s\n",
+						cmd[0], strerror(errno));
+	    waitpid(c->pid, &status, WNOHANG);
+	    c->pid = 0;
+	}
+    }
+
+    if (mashed[0] != NULL)
+	free(mashed[0]);
+
+    sigprocmask(SIG_UNBLOCK, &set_chld, NULL);
 
     return(0);
 }
@@ -719,142 +863,6 @@ line_split(line, args)
 }
 
 /*
- * make cmd and arg strings into an args[][] for exec(), find a process
- * slot (1 of n_opt) to run the command and use run_cmd() to start it.
- */
-int
-dispatch_cmd(cmd, args)
-    char	*cmd,
-		**args;
-{
-    int		i;
-    static int	cmd_n = 1;
-
-    for (i = 0; i < n_opt; i++) {
-	if (progeny[i].pid != 0)
-	    continue;
-
-	progeny[i].n = cmd_n;
-			/* XXX: check retcode from *cmd()? */
-	return(run_cmd(&progeny[i], args));
-    }
-
-	/* XXX: is this right?  what could run_cmd() return? */
-    return(-1);
-}
-
-/*
- * start a command via an exec, after breaking up the arguments
- */
-int
-execcmd(c, args)
-    child	*c;
-    char	**args;
-{
-    char	*cmd = "",
-		*mashed[] = { NULL, NULL },
-		**newargs;
-    int		status;
-    time_t	t;
-
-    /* XXX: is this right? */
-    if (args == NULL)
-	return(ENOEXEC);
-
-    /* build newargs */
-    if ((status = arg_mash(&mashed, args))) {		/* simply for the log */
-	/* XXX: is this err msg always proper? will only ret true or ENOMEM? */
-	fprintf(errfp, "Error: memory allocation failed: %s\n",
-		strerror(errno));
-	return(status);
-    }
-    if ((status = arg_replace(cmd, NULL, args, &newargs))) {
-	/* XXX: is this err msg always proper? will only ret true or ENOMEM? */
-	fprintf(errfp, "Error: memory allocation failed: %s\n",
-		strerror(errno));
-	return(status);
-    }
-
-    /* block sigchld so we quickly reap it ourselves */
-    sigprocmask(SIG_BLOCK, &set_chld, NULL);
-
-    if (c->logfile) {
-	t = time(NULL);
-		/* XXX: build a complete cmd line */
-	cmd = ctime(&t); cmd[strlen(cmd) - 1] = '\0';
-	fprintf(c->logfile, "!!!!!!!\n!%s: %s\n!!!!!!!\n", cmd, mashed[0]);
-	fflush(c->logfile);
-    }
-
-    if ((c->pid = fork()) == 0) {
-	/* child */
-	signal(SIGCHLD, SIG_DFL);
-        sigprocmask(SIG_UNBLOCK, &set_chld, NULL);
-	if (debug > 1) {
-	    fprintf(errfp, "fork(sh -c %s ...) pid %d\n", mashed[0], getpid());
-	}
-	/* reassign stdout and stderr to the log file, stdin to /dev/null */
-	reopenfds(c);
-
-	execvp(newargs[0], newargs);
-
-	/* not reached, unless exec() fails */
-	fprintf(errfp, "Error: exec(xterm failed): %s\n", strerror(errno));
-	exit(EX_UNAVAILABLE);
-    } else {
-	if (debug)
-	    fprintf(errfp, "\nStarting %d/%d %s: process id=%d\n",
-					c->n, n_opt, mashed[0], c->pid);
-	if (c->pid == -1) {
-	    fprintf(errfp, "Error: exec(sh -c) failed: %s\n", strerror(errno));
-	    waitpid(c->pid, &status, WNOHANG);
-	    c->pid = 0;
-	}
-    }
-
-    if (mashed[0] != NULL)
-	free(mashed[0]);
-
-    sigprocmask(SIG_UNBLOCK, &set_chld, NULL);
-
-    return(0);
-}
-
-/*
- * free space in a char[][] from arg_replace()
- */
-void
-arg_free(newargs)
-    char	***newargs;
-{
-#if 0
-    char	**ptr;
-#endif
-
-    if (newargs == NULL || *newargs == NULL)
-	return;
-
-    if (**newargs != NULL)
-	free(**newargs);
-
-    free(*newargs);
-
-#if 0
-    ptr = *newargs;
-
-    while (ptr != NULL && *ptr != NULL)
-	free(*ptr);
-
-    if (ptr != NULL)
-	free(ptr);
-#endif
-
-    *newargs = NULL;
-
-    return;
-}
-
-/*
  * start a command whose output is concatenated to the childs logfile via
  * sh -c.
  */
@@ -955,7 +963,7 @@ read_input(fname, F, line, cmd, args)
     char	*fname;
     FILE	**F;
     int		*line;
-    char	**cmd;
+    char	***cmd;
     char	***args;
 {
     int		e;
@@ -970,7 +978,7 @@ read_input(fname, F, line, cmd, args)
 
 	if ((*F = fopen(fname, "r")) == NULL) {
 	    e = errno;
-	    asprintf(cmd, "Error: open(%s) failed: %s\n", fname, strerror(e));
+	    fprintf(errfp, "Error: open(%s) failed: %s\n", fname, strerror(e));
 	    return(e);
 	}
 	*cmd = NULL;  *args = NULL;
@@ -987,24 +995,28 @@ read_input(fname, F, line, cmd, args)
 	    if (fgets(buf, LINE_MAX + 1, *F) == NULL)
 		goto ERR;
 	    *line++;
-	    if (asprintf(cmd, "%s", buf) == -1) {
-		e = errno;
-		asprintf(cmd, "Error: %s\n", strerror(e));
+	    if ((e = line_split(buf, cmd))) {
+			/* XXX: is strerror(e) right? */
+		fprintf(errfp, "Error: %s\n", strerror(e));
+		fclose(*F); *F = NULL;
 		return(e);
 	    }
 	    break;
 	default:
 	    ungetc(buf[0], *F);
 	    if (cmd == NULL && c_opt != NULL)
-		if (asprintf(cmd, "%s", c_opt) == -1) {
-		    e = errno;
-		    asprintf(cmd, "Error: %s\n", strerror(e));
+		if ((e = line_split(buf, cmd))) {
+			/* XXX: is strerror(e) right? */
+		    fprintf(errfp, "Error: %s\n", strerror(e));
+		    fclose(*F); *F = NULL;
 		    return(e);
 		}
 	}
     }
+
+    /* make sure fname isnt NULL for error printfs */
     if (fname == NULL)
-	fname = "(null)";
+	fname = "(unknown)";
 
 NEXT:
     /* next line */
@@ -1026,7 +1038,8 @@ NEXT:
 
     /* split the line into an args[][] */
     if ((e = line_split(buf, args))) {
-	asprintf(cmd, "Error: parsing args: %s\n", strerror(e));
+		/* XXX: is strerror(e) right? */
+	fprintf(errfp, "Error: parsing args: %s\n", strerror(e));
 	return(e);
     }
 
@@ -1038,7 +1051,7 @@ ERR:
 	e = EOF;
     } else {
 	e = errno;
-	asprintf(cmd, "Error: read(%s) failed: %s\n", fname, strerror(e));
+	fprintf(errfp, "Error: read(%s) failed: %s\n", fname, strerror(e));
     }
     fclose(*F); *F = NULL;
     return(e);
@@ -1088,21 +1101,27 @@ reopenfds(c)
  * start a command.
  */
 int
-run_cmd(c, args)
+run_cmd(c, cmd, args)
     child	*c;
-    char	**args;
+    char	**cmd,
+		**args;
 {
+    char	**newcmd;
     int		e;
 
     if (c == NULL)
 	return;
 
-    if (i_opt) {
-	e = xtermcmd(c, args);
-    } else if (e_opt) {
-	e = execcmd(c, args);
-    } else {
-	e = shcmd(c, args);
+    /* preform arg subsitution */
+    if ((e = arg_replace(cmd, args, NULL, &newcmd)) == 0) {
+	if (i_opt) {
+	    e = xtermcmd(c, args);
+	} else if (e_opt) {
+	    e = execcmd(c, args);
+	} else
+	    e = shcmd(c, args);
+
+	arg_free(&newcmd);
     }
 
     if (p_opt) {
