@@ -48,7 +48,7 @@ AC_CHECK_HEADERS(limits.h memory.h siginfo.h string.h strings.h unistd.h)
 
 AC_CHECK_HEADERS(errno.h fcntl.h stdlib.h sys/types.h sys/wait.h)
 dnl AC_CHECK_HEADERS(malloc.h)
-AC_CHECK_HEADERS(sysexits.h)
+AC_CHECK_HEADERS(stdarg.h sysexits.h)
 
 # check functions
 AC_CHECK_FUNCS(memcpy memmove memset bcopy bzero strerror strchr strrchr \

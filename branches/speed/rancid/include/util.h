@@ -17,6 +17,10 @@
 #include <config.h>
 
 #if ! HAVE_VASPRINTF
+# if HAVE_STDARG_H
+#  include <stdarg.h>
+# endif
+
 int		asprintf    __P((char **, char *, ...));
 int		vasprintf   __P((char **, char *, ...));
 #endif
