@@ -4,7 +4,7 @@
 #AUTOMAKE_OPTIONS=foreign no-dependencies
 AUTOMAKE_OPTIONS=foreign
 
-noinst_HEADERS= config.h version.h
+noinst_HEADERS= config.h util.h version.h
 
 @SET_MAKE@
 
