@@ -427,10 +427,16 @@ arg_replace(cmd, args, tail, new)
 			nargs = 0,		/* # of entries in args[][] */
 			ncmds = 0,		/* # of entries in cmd[][] */
 			ntail = 0,		/* # of entries in tail[][] */
+			atick = 0,		/* single quoted string toggle
+						 * in args[][]
+						 */
+			aquotes = 0,		/* double quoted string toggle
+						 * in args[][]
+						 */
 			quotes = 0;		/* " quoted string toggle */
     char		*tick = NULL,		/* ' quoted string */
 			*ptr;
-    register int	b, c, n;
+    register int	a, b, c, n;
     char		buf[LINE_MAX * 2];	/* temporary space */
 
     /* if new is null, that is an internal error */
@@ -515,16 +521,53 @@ arg_replace(cmd, args, tail, new)
 	    case '{':
 		/* insert arg[n], if the next char is '}' */
 		if (ptr[c + 1] == '}') {
-		    len = strlen(args[argn]);
-		    if ((b + len) < (LINE_MAX * 2)) {
-			bcopy(args[argn], &buf[b], len);
-			b += len;
+		    if (argn < nargs) {
+			len = strlen(args[argn]);
+			/* XXX: perform shell quoting on the arg */
+			a = 0;
+			while (args[argn][a] != '\0') {
+			    if (b >= (LINE_MAX * 2 - 1)) {
+				fprintf(errfp, "Error: buffer space exhausted"
+									"\n");
+				return(ENOMEM);     
+			    }                        
+			    switch (args[argn][a]) {
+			    case '\'':
+				if (!atick)
+				    atick ^= 1;
+				a++;
+				break;
+			    case '\\':
+				if (atick) {
+				    buf[b++] = args[argn][a++];
+				} else if (args[argn][a + 1] == 'n') {
+				    buf[b++] = '\n';
+				    a += 2;
+				} else if (args[argn][a + 1] == 'r') {
+				    buf[b++] = '\r';
+				    a += 2;
+				} else if (args[argn][a + 1] == 't') {
+				    buf[b++] = '\t';
+				    a += 2;
+				} else {
+				    buf[b++] = args[argn][++a];
+				    a++;
+				}
+				break;
+			    case '"':
+				if (!atick) {
+				    aquotes ^= 1;
+				    a++;
+				    break;
+				}
+			    default:
+				buf[b++] = args[argn][a++];
+			    }
+			}
 			argn++;
-		    } else {
-			fprintf(errfp, "Error: buffer space exhausted\n");
-			return(ENOMEM);
 		    }
 
+		    c += 2;
 		    break;
 		}
 
@@ -825,6 +868,11 @@ read_input(fname, F, line, cmd, args)
 	    if (fgets(buf, LINE_MAX + 1, *F) == NULL)
 		goto ERR;
 	    (*line)++;
+	    e = strlen(buf);
+	    if (buf[e - 1] == '\n') {
+		buf[e - 1] = '\0';
+	    } /* else
+		XXX: finish this */
 	    if ((e = line_split(buf, cmd))) {
 			/* XXX: is strerror(e) right? */
 		fprintf(errfp, "Error: %s\n", strerror(e));
