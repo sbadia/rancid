@@ -48,7 +48,6 @@ typedef struct {
 	FILE	*logfile;
 	int	logfd;				/* logfile FD */
 	pid_t	xpid;				/* xterm child pid */
-	/* XXX: int	rxp[2], txp[2];			/* rx/tx pipes */
 } child;
 
 char		*progname;
@@ -71,19 +70,21 @@ char		*c_opt = NULL,
 
 FILE		*errfp,				/* stderr fp */
 		*logfile;			/* logfile */
-sigset_t	set_chld;
+sigset_t	set_chld;			/* SIGCHLD {un}blocking */
 
+void		arg_free    __P((char ***));
 int		arg_replace __P((char *, char **, char **, char ***));
-int		execcmd __P((child *, char **));
-void		arg_free __P((char ***));
-void		reopenfds __P((child *));
-int		shcmd __P((child *, char **));
-int		xtermcmd __P((child *, char **));
-void		usage __P((void));
-void		vers __P((void));
-void		xtermlog __P((child *));
-RETSIGTYPE	reapchild __P((void));
-RETSIGTYPE	handler __P((int));
+int		execcmd     __P((child *, char **));
+void		reopenfds   __P((child *));
+void		run_cmd     __P((child *, char **));
+int		shcmd       __P((child *, char **));
+void		usage       __P((void));
+void		vers        __P((void));
+int		xtermcmd    __P((child *, char **));
+void		xtermlog    __P((child *));
+
+RETSIGTYPE	handler     __P((int));
+RETSIGTYPE	reapchild   __P((int));
 
 int
 main(int argc, char **argv, char **envp)
@@ -93,9 +94,8 @@ main(int argc, char **argv, char **envp)
     char		ch;
     time_t		t;
     int			i;
-    FILE		*fp;
 
-    /* get just the basename() of our exec() name and strip a .* off the end */
+    /* get just the basename() of our exec() name and strip .* off the end */
     if ((progname = strrchr(argv[0], '/')) != NULL)
 	progname += 1;
     else
@@ -126,6 +126,9 @@ main(int argc, char **argv, char **envp)
 	    break;
 	case 'e':	/* exec args split by spaces rather than using sh -c */
 	    e_opt = 1;
+	    if (i_opt) {
+		fprintf(errfp, "Warning: -e non-sensical with -i\n");
+	    }
 	    break;
 	case 'f':	/* no file or stdin, just run quantity of command */
 	    f_opt = 1;
@@ -138,8 +141,10 @@ main(int argc, char **argv, char **envp)
 	    l_opt = optarg;
 	    break;
 	case 'i':	/* run commands through interactive xterms */
-			/* XXX: -i doesnt make sense with -e */
 	    i_opt = 1;
+	    if (e_opt) {
+		fprintf(errfp, "Warning: -i non-sensical with -e\n");
+	    }
 	    break;
 	case 'n':	/* number of processes to run to run at once, dflt 3 */
 	    n_opt = atoi(optarg);
@@ -179,10 +184,11 @@ main(int argc, char **argv, char **envp)
 	fprintf(errfp, "usage: -f requires -c option\n");
 	usage();
 	return(EX_USAGE);
-    }
-    /* args after options are input file(s) */
-    if (c_opt == NULL && argc - optind == 0) {
-		/* XXX: what about input file from stdin? */
+    } else if (argc - optind == 0) {
+	/* if no -f and no cmd-line input files, read from stdin */
+	ifile = -1;
+    } else if (c_opt == NULL && argc - optind == 0) {
+	/* args after options are input file(s) */
 	fprintf(errfp, "usage: either -c or a command file must be supplied\n");
 	usage();
 	return(EX_USAGE);
@@ -227,11 +233,11 @@ main(int argc, char **argv, char **envp)
     }
 
     /* prepare to accept signals */
-    signal(SIGHUP, (void *) handler);
-    signal(SIGINT, (void *) handler);
-    signal(SIGTERM, (void *) handler);
-    signal(SIGQUIT, (void *) handler);
-    signal(SIGCHLD, (void *) reapchild);
+    signal(SIGHUP, handler);
+    signal(SIGINT, handler);
+    signal(SIGTERM, handler);
+    signal(SIGQUIT, handler);
+    signal(SIGCHLD, reapchild);
     sigemptyset(&set_chld);
     sigaddset(&set_chld, SIGCHLD);
 
@@ -240,34 +246,24 @@ main(int argc, char **argv, char **envp)
 	f_opt = 1;
 
     /*
-     * command dispatch loop starts here.
+     * command dispatch starts here.
      *
      * -f means just run the -c command -n times.  any args become "".
      */
     if (f_opt) {
-	char	*nullopts[] = { NULL, NULL },
-		**args;
+	char	**args;
 
-	/* replace {}s in c_opt */
-	if (arg_replace(c_opt, NULL, NULL, &args)) {
-		/* XXX: arg_replace error! */
-		;
+	if ((i = arg_replace(c_opt, NULL, NULL, &args))) {
+	    fprintf(errfp, "Error: failed to build command");
+	    if (i == ENOMEM)
+		fprintf(errfp, ": %s\n", strerror(errno));
+	    else
+		fprintf(errfp, "\n");
 	} else {
 	    for (i = 0; i < n_opt; i++) {
 		progeny[i].n = i + 1;
 			/* XXX: check retcode from *cmd()? */
-		if (i_opt) {
-		    xtermcmd(&progeny[i], args);
-		} else if (e_opt) {
-		    execcmd(&progeny[i], args);
-		} else {
-		    shcmd(&progeny[i], args);
-		}
-		if (p_opt) {
-		    sigprocmask(SIG_BLOCK, &set_chld, NULL);
-		    sleep(p_opt);
-		    sigprocmask(SIG_UNBLOCK, &set_chld, NULL);
-		}
+		run_cmd(&progeny[i], args);
 	    }
 	    arg_free(&args);
 	}
@@ -610,8 +606,7 @@ execcmd(c, args)
 	signal(SIGCHLD, SIG_DFL);
         sigprocmask(SIG_UNBLOCK, &set_chld, NULL);
 	if (debug > 1) {
-	    fprintf(errfp, "fork(sh -c %s ...) pid %d\n", mashed[0],
-								c->pid);
+	    fprintf(errfp, "fork(sh -c %s ...) pid %d\n", mashed[0], getpid());
 	}
 	/* reassign stdout and stderr to the log file, stdin to /dev/null */
 	reopenfds(c);
@@ -723,7 +718,7 @@ shcmd(c, args)
 	signal(SIGCHLD, SIG_DFL);
         sigprocmask(SIG_UNBLOCK, &set_chld, NULL);
 	if (debug > 1) {
-	    fprintf(errfp, "fork(sh -c %s ...) pid %d\n", mashed[0], c->pid);
+	    fprintf(errfp, "fork(sh -c %s ...) pid %d\n", mashed[0], getpid());
 	}
 	/* reassign stdout and stderr to the log file, stdin to /dev/null */
 	reopenfds(c);
@@ -750,6 +745,35 @@ shcmd(c, args)
     sigprocmask(SIG_UNBLOCK, &set_chld, NULL);
 
     return(0);
+}
+
+/*
+ * start a command.  basically, handle -f.
+ */
+void
+run_cmd(c, args)
+    child	*c;
+    char	**args;
+{
+
+    if (c == NULL)
+	return;
+
+    if (i_opt) {
+	xtermcmd(c, args);
+    } else if (e_opt) {
+	execcmd(c, args);
+    } else {
+	shcmd(c, args);
+    }
+
+    if (p_opt) {
+	sigprocmask(SIG_BLOCK, &set_chld, NULL);
+	sleep(p_opt);
+	sigprocmask(SIG_UNBLOCK, &set_chld, NULL);
+    }
+
+    return;
 }
 
 /*
@@ -800,7 +824,7 @@ xtermcmd(c, args)
 	signal(SIGCHLD, SIG_DFL);
         sigprocmask(SIG_UNBLOCK, &set_chld, NULL);
 	if (debug > 1) {
-	    fprintf(errfp, "fork(sh -c %s ...) pid %d\n", mashed[0], c->pid);
+	    fprintf(errfp, "fork(sh -c %s ...) pid %d\n", mashed[0], getpid());
 	}
 	/* reassign stdout and stderr to the log file, stdin to /dev/null */
 	reopenfds(c);
@@ -881,7 +905,8 @@ xtermlog(c)
  * logging xterms.  if we get a second signal, we give up.
  */
 RETSIGTYPE 
-handler(int sig)
+handler(sig)
+    int		sig;
 {
     int		i;
 
@@ -915,7 +940,8 @@ handler(int sig)
 }
 
 RETSIGTYPE 
-reapchild(void)
+reapchild(sig)
+    int		sig;
 {
     int		i,
 		status;
@@ -959,18 +985,19 @@ reapchild(void)
 		break;
 	    } else if (i_opt && progeny[i].xpid == pid) {
 		progeny[i].xpid = 0;
-		if (debug > 1)
+		if (debug > 1) {
 		    if (progeny[i].logfile != NULL)
 			fprintf(errfp, "%d log xterm finished\n", pid);
 		    else
 			fprintf(errfp, "%d log xterm finished (logfile %s)\n",
 						pid, progeny[i].logfname);
+		}
 		break;
 	    }
 	}
     }
 
-    signal(SIGCHLD, (void *) reapchild);
+    signal(SIGCHLD, reapchild);
     sigprocmask(SIG_UNBLOCK, &set_chld, NULL);
 
     return;
@@ -1020,16 +1047,14 @@ void
 usage(void)
 {
     fprintf(errfp,
-"usage: %s [-dfiqx] [-n #] [-p n] [-l logfile] [-c command] [<command file>]
-", progname);
+"usage: %s [-dfiqx] [-n #] [-p n] [-l logfile] [-c command] [<command file>]\n",
+	progname);
     return;
 }
 
 void
 vers(void)
 {
-    fprintf(errfp,
-"%s: %s version %s
-", progname, package, version);
+    fprintf(errfp, "%s: %s version %s\n", progname, package, version);
     return;
 }
