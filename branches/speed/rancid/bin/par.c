@@ -871,84 +871,6 @@ END:
 }
 
 /*
- * start a command whose output is concatenated to the childs logfile via
- * sh -c.
- */
-int
-shcmd(c, cmd)
-    child	*c;
-    char	**cmd;
-{
-    char	*sh[] = { "sh", "-c", NULL },
-		*mashed[] = { NULL, NULL },
-		**new;
-    int		status;
-    time_t	t;
-
-    /* XXX: is this right? */
-    if (cmd == NULL)
-	return(ENOEXEC);
-
-    /* build new command */
-    if ((status = arg_mash(&mashed, cmd))) {
-	/* XXX: is this err msg always proper? will only ret true or ENOMEM? */
-	fprintf(errfp, "Error: memory allocation failed: %s\n",
-		strerror(errno));
-	return(status);
-    }
-    if ((status = arg_replace(sh, NULL, mashed, &new))) {
-	/* XXX: is this err msg always proper? will only ret true or ENOMEM? */
-	fprintf(errfp, "Error: memory allocation failed: %s\n",
-		strerror(errno));
-	return(status);
-    }
-
-    /* block sigchld so we quickly reap it ourselves */
-    sigprocmask(SIG_BLOCK, &set_chld, NULL);
-
-    if (c->logfile) {
-	char	*ct;
-	t = time(NULL);
-	ct = ctime(&t); ct[strlen(ct) - 1] = '\0';
-	fprintf(c->logfile, "!!!!!!!\n!%s: %s\n!!!!!!!\n", ct, mashed[0]);
-	fflush(c->logfile);
-    }
-
-    if ((c->pid = fork()) == 0) {
-	/* child */
-	signal(SIGCHLD, SIG_DFL);
-        sigprocmask(SIG_UNBLOCK, &set_chld, NULL);
-	if (debug > 1) {
-	    fprintf(errfp, "fork(sh -c %s ...) pid %d\n", mashed[0], getpid());
-	}
-	/* reassign stdout and stderr to the log file, stdin to /dev/null */
-	reopenfds(c);
-
-	execvp(new[0], new);
-
-	/* not reached, unless exec() fails */
-	fprintf(errfp, "Error: exec(%s) failed: %s\n", new[0], strerror(errno));
-	exit(EX_UNAVAILABLE);
-    } else {
-	if (debug)
-	    fprintf(errfp, "\nStarting %d/%d %s: process id=%d\n",
-					c->n, n_opt, mashed[0], c->pid);
-	if (c->pid == -1) {
-	    fprintf(errfp, "Error: fork() failed: %s\n", strerror(errno));
-	    waitpid(c->pid, &status, WNOHANG);
-	    c->pid = 0;
-	}
-    }
-
-    if (mashed[0] != NULL)
-	free(mashed[0]);
-
-    sigprocmask(SIG_UNBLOCK, &set_chld, NULL);
-
-    return(0);
-}
-
-/*
  * if F is NULL, we open fname.
  *
  * read first line as a command and subsequent lines as either commands or
@@ -1148,6 +1070,84 @@ run_cmd(c, cmd, args)
     }
 
     return(e);
+}
+
+/*
+ * start a command whose output is concatenated to the childs logfile via
+ * sh -c.
+ */
+int
+shcmd(c, cmd)
+    child	*c;
+    char	**cmd;
+{
+    char	*sh[] = { "sh", "-c", NULL },
+		*mashed[] = { NULL, NULL },
+		**new;
+    int		status;
+    time_t	t;
+
+    /* XXX: is this right? */
+    if (cmd == NULL)
+	return(ENOEXEC);
+
+    /* build new command */
+    if ((status = arg_mash(&mashed, cmd))) {
+	/* XXX: is this err msg always proper? will only ret true or ENOMEM? */
+	fprintf(errfp, "Error: memory allocation failed: %s\n",
+		strerror(errno));
+	return(status);
+    }
+    if ((status = arg_replace(sh, NULL, mashed, &new))) {
+	/* XXX: is this err msg always proper? will only ret true or ENOMEM? */
+	fprintf(errfp, "Error: memory allocation failed: %s\n",
+		strerror(errno));
+	return(status);
+    }
+
+    /* block sigchld so we quickly reap it ourselves */
+    sigprocmask(SIG_BLOCK, &set_chld, NULL);
+
+    if (c->logfile) {
+	char	*ct;
+	t = time(NULL);
+	ct = ctime(&t); ct[strlen(ct) - 1] = '\0';
+	fprintf(c->logfile, "!!!!!!!\n!%s: %s\n!!!!!!!\n", ct, mashed[0]);
+	fflush(c->logfile);
+    }
+
+    if ((c->pid = fork()) == 0) {
+	/* child */
+	signal(SIGCHLD, SIG_DFL);
+        sigprocmask(SIG_UNBLOCK, &set_chld, NULL);
+	if (debug > 1) {
+	    fprintf(errfp, "fork(sh -c %s ...) pid %d\n", mashed[0], getpid());
+	}
+	/* reassign stdout and stderr to the log file, stdin to /dev/null */
+	reopenfds(c);
+
+	execvp(new[0], new);
+
+	/* not reached, unless exec() fails */
+	fprintf(errfp, "Error: exec(%s) failed: %s\n", new[0], strerror(errno));
+	exit(EX_UNAVAILABLE);
+    } else {
+	if (debug)
+	    fprintf(errfp, "\nStarting %d/%d %s: process id=%d\n",
+					c->n, n_opt, mashed[0], c->pid);
+	if (c->pid == -1) {
+	    fprintf(errfp, "Error: fork() failed: %s\n", strerror(errno));
+	    waitpid(c->pid, &status, WNOHANG);
+	    c->pid = 0;
+	}
+    }
+
+    if (mashed[0] != NULL)
+	free(mashed[0]);
+
+    sigprocmask(SIG_UNBLOCK, &set_chld, NULL);
+
+    return(0);
 }
 
 /*
