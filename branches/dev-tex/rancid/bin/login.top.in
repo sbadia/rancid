@@ -1,3 +1,4 @@
+##----------------- BEGIN LOGIN INCLUDE FILE -----------------
 ## $Id$
 ##
 ## Copyright (C) 1997-2004 by Terrapin Communications, Inc.
@@ -303,3 +304,4 @@ proc source_password_file { password_file } {
     }
 }
 
+##----------------- END LOGIN INCLUDE FILE -----------------

@@ -34,11 +34,14 @@ bin_SCRIPTS = cat5rancid control_rancid \
 	tntlogin tntrancid xrancid zrancid
 
 bin_SCRIPTS += lg.cgi lgform.cgi rancid-cvs rancid-run
+
+
 EXTRA_DIST= lg.cgi.in lgform.cgi.in rancid-cvs.in rancid-run.in
 #dist_bin_SCRIPTS= $(bin_SCRIPTS:%=%.in)
 
-CLEANFILES= lg.cgi lgform.cgi rancid-cvs rancid-run
+#CLEANFILES= lg.cgi lgform.cgi rancid-cvs rancid-run
 #CLEANFILES= $(bin_SCRIPTS)
+CLEANFILES = $(bin_SCRIPTS) $(bin_PROGRAMS) login.top
 
 hpuifilter_SOURCES = hpuifilter.c
 
@@ -75,6 +78,17 @@ auto_edit = sed \
 	-e 's,@ADMINMAILPLUS\@,$(ADMINMAILPLUS),g' \
 	-e 's,@MAILPLUS\@,$(MAILPLUS),g'
 
+# perl -pe == while(<>) { do stuff in -e ; print $_ }
+# allows for sed like stream filtering. Throws error if include fails.
+include_substitute = \
+	$(PERLV_PATH) \
+	-pe 'while (s/\@INCLUDE (.*)\@//){ '\
+	-e  '    $$file = $$1;' \
+	-e  '    open(F,$$file) || die "can not open $$file: $$!\n";' \
+	-e  '    print <F>; close F;' \
+	-e  '}'
+
+
 lg.cgi: Makefile $(srcdir)/lg.cgi.in
 	rm -f lg.cgi lg.cgi.tmp; \
 	$(auto_edit) $(srcdir)/lg.cgi.in >lg.cgi.tmp; \
@@ -98,3 +112,79 @@ rancid-run: Makefile $(srcdir)/rancid-run.in
 	$(auto_edit) $(srcdir)/rancid-run.in >rancid-run.tmp; \
 	chmod +x rancid-run.tmp; \
 	mv rancid-run.tmp rancid-run
+
+# This is the include file for the login scripts.
+# Auto editing may never be necessary here. May be better left as
+# an autoconf config file, not sure.
+login.top: login.top.in
+	$(auto_edit) $@.in > $@
+
+# It doesn't seem like it's possible to use a macro here, like bin_COMPILE.
+# Overriding COMPILE itself will break the hpfilter compilation. So, there
+# is an entry for each login script unless someone else has a better idea.
+
+# bin_COMPILE:	$@.in login.top
+#	rm -f $@; \
+#	cat $@.in | $(auto_edit) | $(include_substitute) > $@; \
+#	chmod +x $@
+
+alogin: alogin.in login.top
+	rm -f $@; \
+	cat $@.in | $(auto_edit) | $(include_substitute) > $@; \
+	chmod +x $@
+
+blogin: blogin.in login.top
+	rm -f $@; \
+	cat $@.in | $(auto_edit) | $(include_substitute) > $@; \
+	chmod +x $@
+
+clogin: clogin.in login.top
+	rm -f $@; \
+	cat $@.in | $(auto_edit) | $(include_substitute) > $@; \
+	chmod +x $@
+
+elogin: elogin.in login.top
+	rm -f $@; \
+	cat $@.in | $(auto_edit) | $(include_substitute) > $@; \
+	chmod +x $@
+
+flogin: flogin.in login.top
+	rm -f $@; \
+	cat $@.in | $(auto_edit) | $(include_substitute) > $@; \
+	chmod +x $@
+
+hlogin: hlogin.in login.top
+	rm -f $@; \
+	cat $@.in | $(auto_edit) | $(include_substitute) > $@; \
+	chmod +x $@
+
+htlogin: htlogin.in login.top
+	rm -f $@; \
+	cat $@.in | $(auto_edit) | $(include_substitute) > $@; \
+	chmod +x $@
+
+jlogin: jlogin.in login.top
+	rm -f $@; \
+	cat $@.in | $(auto_edit) | $(include_substitute) > $@; \
+	chmod +x $@
+
+nlogin: nlogin.in login.top
+	rm -f $@; \
+	cat $@.in | $(auto_edit) | $(include_substitute) > $@; \
+	chmod +x $@
+
+nslogin: nslogin.in login.top
+	rm -f $@; \
+	cat $@.in | $(auto_edit) | $(include_substitute) > $@; \
+	chmod +x $@
+
+rivlogin: rivlogin.in login.top
+	rm -f $@; \
+	cat $@.in | $(auto_edit) | $(include_substitute) > $@; \
+	chmod +x $@
+
+tntlogin: tntlogin.in login.top
+	rm -f $@; \
+	cat $@.in | $(auto_edit) | $(include_substitute) > $@; \
+	chmod +x $@
+

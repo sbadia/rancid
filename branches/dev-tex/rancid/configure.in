@@ -63,7 +63,7 @@ AC_TYPE_SIZE_T
 # they might create it themselves for book-keeping sake; eg: NetBSD
 AC_MSG_CHECKING([whether to create the local state directory at install time])
 AC_ARG_ENABLE(mk-localstatedir,
-	AS_HELP_STRING([--enable-mk-localstatedir], [enable creation of the local state directory at install time (default: yes)]),
+	AC_HELP_STRING([--enable-mk-localstatedir], [enable creation of the local state directory at install time (default: yes)]),
 [if test "$enable_mk_localstatedir" = yes; then
     AC_MSG_RESULT(yes)
 else
@@ -78,7 +78,7 @@ AM_CONDITIONAL([MK_LCLSTATEDIR], [test "${enable_mk_localstatedir}" = yes])
 # they might create it themselves for book-keeping sake; eg: NetBSD
 AC_MSG_CHECKING([whether to install sample .conf files in sysconfdir])
 AC_ARG_ENABLE(conf-install,
-	AS_HELP_STRING([--enable-conf-install], [enable install of sample .conf files in sysconfdir (default: yes)]),
+	AC_HELP_STRING([--enable-conf-install], [enable install of sample .conf files in sysconfdir (default: yes)]),
 [if test "$enable_conf_install" = yes; then
     AC_MSG_RESULT(yes)
 else
@@ -93,7 +93,7 @@ AM_CONDITIONAL([CONF_INSTALL], [test "${enable_conf_install}" = yes])
 # instead of the standard rancid-group
 AC_MSG_CHECKING([whether mail addresses should be in the rancid+ form])
 AC_ARG_ENABLE(mail-plus,
-	AS_HELP_STRING([--enable-mail-plus], [enable mail to rancid+ addresses, instead of rancid-]),
+	AC_HELP_STRING([--enable-mail-plus], [enable mail to rancid+ addresses, instead of rancid-]),
 [if test "$enable_mail_plus" = yes; then
     AC_MSG_RESULT(yes)
     MAILPLUS="rancid+"
@@ -113,7 +113,7 @@ rd_cv_MAILPLUS=$MAILPLUS
 # instead of the standard rancid-admin-group
 AC_MSG_CHECKING([whether admin mail addresses should be in the rancid-admin+ form])
 AC_ARG_ENABLE(adminmail-plus,
-	AS_HELP_STRING([--enable-adminmail-plus], [enable mail to rancid-admin+ addresses, instead of rancid-admin-]),
+	AC_HELP_STRING([--enable-adminmail-plus], [enable mail to rancid-admin+ addresses, instead of rancid-admin-]),
 [if test "$enable_adminmail_plus" = yes; then
     AC_MSG_RESULT([rancid-admin+])
     ADMINMAILPLUS="rancid-admin+"
@@ -280,24 +280,24 @@ AC_CONFIG_FILES(include/version.h)	# this is not a header in the sense of
 					# want is simple variable replacement
 AC_CONFIG_HEADERS(include/config.h)
 AC_CONFIG_FILES(bin/control_rancid bin/par bin/rancid-fe, [chmod a+x $ac_file])
-AC_CONFIG_FILES(bin/alogin bin/arancid, [chmod a+x $ac_file])
-AC_CONFIG_FILES(bin/blogin bin/brancid, [chmod a+x $ac_file])
-AC_CONFIG_FILES(bin/cat5rancid bin/clogin bin/rancid, [chmod a+x $ac_file])
+AC_CONFIG_FILES(bin/arancid, [chmod a+x $ac_file])
+AC_CONFIG_FILES(bin/brancid, [chmod a+x $ac_file])
+AC_CONFIG_FILES(bin/cat5rancid bin/rancid, [chmod a+x $ac_file])
 AC_CONFIG_FILES(bin/cssrancid, [chmod a+x $ac_file])
-AC_CONFIG_FILES(bin/elogin bin/erancid, [chmod a+x $ac_file])
+AC_CONFIG_FILES(bin/erancid, [chmod a+x $ac_file])
 AC_CONFIG_FILES(bin/f10rancid, [chmod a+x $ac_file])
-AC_CONFIG_FILES(bin/flogin bin/francid, [chmod a+x $ac_file])
+AC_CONFIG_FILES(bin/francid, [chmod a+x $ac_file])
 AC_CONFIG_FILES(bin/fnrancid, [chmod a+x $ac_file])
-AC_CONFIG_FILES(bin/jlogin bin/jrancid bin/jerancid, [chmod a+x $ac_file])
-AC_CONFIG_FILES(bin/hlogin bin/hrancid, [chmod a+x $ac_file])
-AC_CONFIG_FILES(bin/htlogin bin/htrancid, [chmod a+x $ac_file])
+AC_CONFIG_FILES(bin/jrancid bin/jerancid, [chmod a+x $ac_file])
+AC_CONFIG_FILES(bin/hrancid, [chmod a+x $ac_file])
+AC_CONFIG_FILES(bin/htrancid, [chmod a+x $ac_file])
 AC_CONFIG_FILES(bin/mrancid, [chmod a+x $ac_file])
-AC_CONFIG_FILES(bin/nlogin bin/nrancid, [chmod a+x $ac_file])
-AC_CONFIG_FILES(bin/nslogin bin/nsrancid, [chmod a+x $ac_file])
+AC_CONFIG_FILES(bin/nrancid, [chmod a+x $ac_file])
+AC_CONFIG_FILES(bin/nsrancid, [chmod a+x $ac_file])
 AC_CONFIG_FILES(bin/prancid, [chmod a+x $ac_file])
-AC_CONFIG_FILES(bin/rivlogin bin/rivrancid, [chmod a+x $ac_file])
+AC_CONFIG_FILES(bin/rivrancid, [chmod a+x $ac_file])
 AC_CONFIG_FILES(bin/rrancid, [chmod a+x $ac_file])
-AC_CONFIG_FILES(bin/tntlogin bin/tntrancid, [chmod a+x $ac_file])
+AC_CONFIG_FILES(bin/tntrancid, [chmod a+x $ac_file])
 AC_CONFIG_FILES(bin/xrancid bin/zrancid, [chmod a+x $ac_file])
 AC_CONFIG_FILES(share/rtrfilter, [chmod a+x $ac_file])
 
