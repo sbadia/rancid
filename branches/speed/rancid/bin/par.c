@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1997-2002 by Henry Kilmer, Erik Sherk and Pete Whiting.
+ * Copyright (C) 2002-2003 by Henry Kilmer, Andrew Partan, John Heasley
  * All rights reserved.
  *
  * This software may be freely copied, modified and redistributed without
@@ -12,6 +12,8 @@
  * or its effect upon hardware, computer systems, other software, or
  * anything else.
  *
+ * perl version of par is Copyright (C) 1997-2002 by Henry Kilmer, Erik
+ * Sherk and Pete Whiting.
  *
  * PAR - parallel processing of command
  *
@@ -78,7 +80,7 @@ char		*c_opt = NULL,
 		*l_opt = "par.log";
 
 FILE		*errfp,				/* stderr fp */
-		*logfile;			/* logfile */
+		*logfile;			/* logfile fp */
 sigset_t	set_chld;			/* SIGCHLD {un}blocking */
 
 void		arg_free     __P((char ***));
@@ -419,8 +421,8 @@ arg_mash(dst, src)
  * from args[][].  any {}s not matching up to an arg are replaced with "".
  *
  * args found in tail[][] are concatenated to the end newargs[][] without any
- * interpretation.  ie: if arg_replace() were already call but something needs
- * to be prepended or appended.
+ * interpretation.  ie: if arg_replace() were already called but something
+ * needs to be prepended or appended.
  *
  * it returns an argv[][] which begins with the command followed by the args
  * and is null terminated in newargs that is suitable for execvp() and 0 or
@@ -613,7 +615,7 @@ arg_replace(cmd, args, tail, new)
 }
 
 /*
- * find a child/process slot (1 of n_opt) to run the command and use
+ * find a child/process slot (one of n_opt) to run the command and use
  * run_cmd() to start it.
  *
  * returns EAGAIN if there were no available child slots else the return
@@ -703,6 +705,9 @@ execcmd(c, cmd)
 					c->n, n_opt, mashed[0], c->pid);
 	if (c->pid == -1) {
 	    fprintf(errfp, "Error: fork() failed: %s\n", strerror(errno));
+		/* XXX: wait on c->pid when its -1?  arg is valid, but
+			if the fork failed will have a procstruct to return
+			status? */
 	    waitpid(c->pid, &status, WNOHANG);
 	    c->pid = 0;
 	}
