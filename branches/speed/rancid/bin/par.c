@@ -97,20 +97,6 @@ main(int argc, char **argv, char **envp)
     int			i;
     FILE		*fp;
 
-    char		hbuf[LINE_MAX * 2],	/* hlogin buffer */
-			*hbufp,
-			tbuf[LINE_MAX * 2],	/* telnet buffer */
-			*tbufp;
-    int			bytes,			/* bytes read/written */
-			r[2],			/* recv pipe */
-			s[2];			/* send pipe */
-    ssize_t		hlen = 0,		/* len of hbuf */
-			tlen = 0;		/* len of tbuf */
-    struct timeval	to = { DFLT_TO, 0 };
-    fd_set		rfds,			/* select() */
-			wfds;
-    struct termios	tios;
-
     /* get just the basename() of our exec() name and strip a .* off the end */
     if ((progname = strrchr(argv[0], '/')) != NULL)
 	progname += 1;
@@ -154,6 +140,7 @@ main(int argc, char **argv, char **envp)
 	    l_opt = optarg;
 	    break;
 	case 'i':	/* run commands through interactive xterms */
+			/* XXX: -i doesnt make sense with -e */
 	    i_opt = 1;
 	    break;
 	case 'n':	/* number of processes to run to run at once, dflt 3 */
@@ -167,10 +154,9 @@ main(int argc, char **argv, char **envp)
 	    p_opt = atoi(optarg);
 	    break;
 	case 'q':	/* quiet mode (dont log anything to logfiles */
-	    if (x_opt || l_opt != NULL) {
+	    if (x_opt) {
 		fprintf(errfp, "Warning: -q non-sensical with -x or -l\n");
 		x_opt = 0;
-		x_opt = NULL;
 	    }
 	    q_opt = 1;
 	    break;
@@ -254,7 +240,7 @@ main(int argc, char **argv, char **envp)
     /* if argv[ifile] is NULL and stdin is closed, then f_opt is implicit */
     if (argv[ifile] == NULL && stdin == NULL)
 	f_opt = 1;
- 
+
     /*
      * command dispatch loop starts here.
      *
@@ -279,11 +265,13 @@ main(int argc, char **argv, char **envp)
 		} else {
 		    shcmd(&progeny[i], args);
 		}
-		if (p_opt)
+		if (p_opt) {
+		    sigprocmask(SIG_BLOCK, &set_chld, NULL);
 		    sleep(p_opt);
+		    sigprocmask(SIG_UNBLOCK, &set_chld, NULL);
+		}
 	    }
-		/* XXX: this is not the proper way to free args */
-	    free(args);
+	    arg_free(&args);
 	}
     } else {
 	/*
@@ -389,9 +377,44 @@ if($signalled && !eof) {
 }
 
 /*
+ * arg to sh -c used in shcmd() must be 1 argument.  returns 0 else errno.
+ *
+ * NOTE: dst[][] is assumed to have 2 spaces of which [0][] will be used. the
+ *	 caller will have to free dst[0].
+ */
+int
+arg_mash(dst, src)
+    char	**dst,
+		**src;
+{
+    int		i = 0,
+		len = 0;
+    char	*ptr;
+
+    while (src[i] != NULL)
+	len += strlen(src[i++]);
+    len += i + 1;
+
+    if ((dst[0] = (char *) malloc(sizeof(char *) * len)) == NULL)
+	return(errno);
+    bzero(dst[0], len);
+
+    i = 0; ptr = dst[0];
+    while (src[i] != NULL) {
+	len = strlen(src[i]);
+	bcopy(src[i++], ptr, len);
+	ptr += len;
+	if (src[i] != NULL)
+	    *ptr++ = ' ';
+    }
+
+    return(0);
+}
+
+/*
  * takes a command string (cmd) like "echo {}" whose args are stored in a
- * NULL terminated args[][] and sequentially replaces {}'s from args[][]. any
- * {}'s not matching up to an arg are replaced with "".
+ * NULL terminated args[][] and sequentially replaces {}s from args[][]. any
+ * {}s not matching up to an arg are replaced with "".
  *
  * args found in tail[][] are concatenated to the end newargs[][] without any
  * interpretation.
@@ -400,7 +423,7 @@ if($signalled && !eof) {
  * and is null terminated in newargs that is suitable for execvp() and 0 or
  * errno.
  *
- * NOTE: if arg_replace() succeeds (returns 0), it is the caller's
+ * NOTE: if arg_replace() succeeds (returns 0), it is the callers
  *	  responsibility to free the space with arg_free().
  */
 int
@@ -602,6 +625,7 @@ execcmd(c, args)
     char	**args;
 {
     char	*cmd = "",
+		*mashed[] = { NULL, NULL },
 		**newargs;
     int		status;
     pid_t	pid;
@@ -612,6 +636,12 @@ execcmd(c, args)
 	return(ENOEXEC);
 
     /* build newargs */
+    if ((pid = arg_mash(&mashed, args))) {		/* simply for the log */
+	/* XXX: is this err msg always proper? will only ret true or ENOMEM? */
+	fprintf(errfp, "Error: memory allocation failed: %s\n",
+		strerror(errno));
+	return(pid);
+    }
     if ((pid = arg_replace(cmd, NULL, args, &newargs))) {
 	/* XXX: is this err msg always proper? will only ret true or ENOMEM? */
 	fprintf(errfp, "Error: memory allocation failed: %s\n",
@@ -626,7 +656,8 @@ execcmd(c, args)
 	t = time(NULL);
 		/* XXX: build a complete cmd line */
 	cmd = ctime(&t); cmd[strlen(cmd) - 1] = '\0';
-	fprintf(c->logfile, "!!!!!!!\n!%s: %s\n!!!!!!!\n", cmd, newargs[0]);
+	fprintf(c->logfile, "!!!!!!!\n!%s: %s\n!!!!!!!\n", cmd, mashed[0]);
+	fflush(c->logfile);
     }
 
     if ((pid = fork()) == 0) {
@@ -636,9 +667,9 @@ execcmd(c, args)
 	if (debug > 1) {
 		/* XXX: build a complete cmd line */
 	    if (c->logfile != NULL)
-		fprintf(c->logfile, "fork(sh -c %s ...) pid %d\n", newargs[0],
+		fprintf(c->logfile, "fork(sh -c %s ...) pid %d\n", mashed[0],
 								getpid());
-	    fprintf(errfp, "fork(sh -c %s ...) pid %d\n", newargs[0],
+	    fprintf(errfp, "fork(sh -c %s ...) pid %d\n", mashed[0],
 								getpid());
 	}
 	/* reassign stdout and stderr to the log file, stdin to /dev/null */
@@ -654,10 +685,10 @@ execcmd(c, args)
 		/* XXX: build a complete cmd line */
 	    if (c->logfname == NULL)
 		fprintf(errfp, "\nStarting %d/%d %s: process id=%d\n",
-			c->n, n_opt, newargs[0], pid);
+			c->n, n_opt, mashed[0], pid);
 	    else
 		fprintf(errfp, "\nStarting %d/%d %s: process id=%d "
-			"logfile=%s\n", c->n, n_opt, newargs[0], pid,
+			"logfile=%s\n", c->n, n_opt, mashed[0], pid,
 			c->logfname);
 	if (pid == -1) {
 	    fprintf(errfp, "Error: exec(sh -c) failed: %s\n", strerror(errno));
@@ -715,6 +746,7 @@ shcmd(c, args)
     char	**args;
 {
     char	*cmd = "sh -c",
+		*mashed[] = { NULL, NULL },
 		**newargs;
     int		status;
     pid_t	pid;
@@ -725,7 +757,13 @@ shcmd(c, args)
 	return(ENOEXEC);
 
     /* build newargs */
-    if ((pid = arg_replace(cmd, NULL, args, &newargs))) {
+    if ((pid = arg_mash(&mashed, args))) {
+	/* XXX: is this err msg always proper? will only ret true or ENOMEM? */
+	fprintf(errfp, "Error: memory allocation failed: %s\n",
+		strerror(errno));
+	return(pid);
+    }
+    if ((pid = arg_replace(cmd, NULL, mashed, &newargs))) {
 	/* XXX: is this err msg always proper? will only ret true or ENOMEM? */
 	fprintf(errfp, "Error: memory allocation failed: %s\n",
 		strerror(errno));
@@ -739,7 +777,8 @@ shcmd(c, args)
 	t = time(NULL);
 		/* XXX: build a complete cmd line */
 	cmd = ctime(&t); cmd[strlen(cmd) - 1] = '\0';
-	fprintf(c->logfile, "!!!!!!!\n!%s: %s\n!!!!!!!\n", cmd, newargs[0]);
+	fprintf(c->logfile, "!!!!!!!\n!%s: %s\n!!!!!!!\n", cmd, mashed[0]);
+	fflush(c->logfile);
     }
 
     if ((pid = fork()) == 0) {
@@ -749,9 +788,9 @@ shcmd(c, args)
 	if (debug > 1) {
 		/* XXX: build a complete cmd line */
 	    if (c->logfile != NULL)
-		fprintf(c->logfile, "fork(sh -c %s ...) pid %d\n", newargs[0],
+		fprintf(c->logfile, "fork(sh -c %s ...) pid %d\n", mashed[0],
 								getpid());
-	    fprintf(errfp, "fork(sh -c %s ...) pid %d\n", newargs[0], getpid());
+	    fprintf(errfp, "fork(sh -c %s ...) pid %d\n", mashed[0], getpid());
 	}
 	/* reassign stdout and stderr to the log file, stdin to /dev/null */
 	reopenfds(c);
@@ -766,10 +805,10 @@ shcmd(c, args)
 		/* XXX: build a complete cmd line */
 	    if (c->logfname == NULL)
 		fprintf(errfp, "\nStarting %d/%d %s: process id=%d\n",
-			c->n, n_opt, newargs[0], pid);
+			c->n, n_opt, mashed[0], pid);
 	    else
 		fprintf(errfp, "\nStarting %d/%d %s: process id=%d "
-			"logfile=%s\n", c->n, n_opt, newargs[0], pid,
+			"logfile=%s\n", c->n, n_opt, mashed[0], pid,
 			c->logfname);
 	if (pid == -1) {
 	    fprintf(errfp, "Error: exec(sh -c) failed: %s\n", strerror(errno));
@@ -778,6 +817,9 @@ shcmd(c, args)
 	    c->pid = pid;
 	}
     }
+
+    if (mashed[0] != NULL)
+	free(mashed[0]);
 
     sigprocmask(SIG_UNBLOCK, &set_chld, NULL);
 
@@ -792,33 +834,85 @@ xtermcmd(c, args)
     child	*c;
     char	**args;
 {
-    char	*cmd = "-e",
+    char	*cmd = "xterm -e",
+		*mashed[] = { NULL, NULL },
 		**newargs;
-    int		i;
-
-/* XXX: this is completely unfinished */
+    int		status;
+    pid_t	pid;
+    time_t	t;
 
     /* XXX: is this right? */
     if (args == NULL)
 	return(ENOEXEC);
 
     /* build newargs */
-    if ((i = arg_replace(cmd, NULL, args, &newargs))) {
+    if ((pid = arg_mash(&mashed, args))) {
 	/* XXX: is this err msg always proper? will only ret true or ENOMEM? */
 	fprintf(errfp, "Error: memory allocation failed: %s\n",
 		strerror(errno));
-	return(i);
+	return(pid);
+    }
+    if ((pid = arg_replace(cmd, NULL, args, &newargs))) {
+	/* XXX: is this err msg always proper? will only ret true or ENOMEM? */
+	fprintf(errfp, "Error: memory allocation failed: %s\n",
+		strerror(errno));
+	return(pid);
     }
 
-    if (e_opt)
-	i = execcmd(c, newargs);
-    else
-	i = shcmd(c, newargs);
+    /* block sigchld so we quickly reap it ourselves */
+    sigprocmask(SIG_BLOCK, &set_chld, NULL);
 
-	/* XXX: does this free newargs properly? */
-    free(newargs);
+    if (c->logfile) {
+	t = time(NULL);
+		/* XXX: build a complete cmd line */
+	cmd = ctime(&t); cmd[strlen(cmd) - 1] = '\0';
+	fprintf(c->logfile, "!!!!!!!\n!%s: %s\n!!!!!!!\n", cmd, mashed[0]);
+	fflush(c->logfile);
+    }
 
-    return(i);
+    if ((pid = fork()) == 0) {
+	/* child */
+	signal(SIGCHLD, SIG_DFL);
+        sigprocmask(SIG_UNBLOCK, &set_chld, NULL);
+	if (debug > 1) {
+		/* XXX: build a complete cmd line */
+	    if (c->logfile != NULL)
+		fprintf(c->logfile, "fork(sh -c %s ...) pid %d\n", mashed[0],
+								getpid());
+	    fprintf(errfp, "fork(sh -c %s ...) pid %d\n", mashed[0], getpid());
+	}
+	/* reassign stdout and stderr to the log file, stdin to /dev/null */
+	reopenfds(c);
+
+	execvp(newargs[0], newargs);
+
+	/* not reached, unless exec() fails */
+	fprintf(errfp, "Error: exec(xterm failed): %s\n", strerror(errno));
+	exit(EX_UNAVAILABLE);
+    } else {
+	if (debug)
+		/* XXX: build a complete cmd line */
+	    if (c->logfname == NULL)
+		fprintf(errfp, "\nStarting %d/%d %s: process id=%d\n",
+			c->n, n_opt, mashed[0], pid);
+	    else
+		fprintf(errfp, "\nStarting %d/%d %s: process id=%d "
+			"logfile=%s\n", c->n, n_opt, mashed[0], pid,
+			c->logfname);
+	if (pid == -1) {
+	    fprintf(errfp, "Error: exec(sh -c) failed: %s\n", strerror(errno));
+	    waitpid(c->pid, &status, WNOHANG);
+	} else {
+	    c->pid = pid;
+	}
+    }
+
+    if (mashed[0] != NULL)
+	free(mashed[0]);
+
+    sigprocmask(SIG_UNBLOCK, &set_chld, NULL);
+
+    return(0);
 }
 
 /*
@@ -934,15 +1028,16 @@ reapchild(void)
 	/* search for the pid */
 	for (i = 0; i < n_opt; i++) {
 	    if (progeny[i].pid == pid) {
-		if (debug)
+		if (debug) {
 		    if (progeny[i].logfname == NULL)
 			fprintf(errfp, "%d finished\n", pid);
 		    else
 			fprintf(errfp, "%d finished (logfile %s)\n", pid,
 							progeny[i].logfname);
+		}
 		if (progeny[i].logfile != NULL) {
 		    str = ctime(&t); str[strlen(str) - 1] = '\0';
-		    fprintf(progeny[i].logfile, "Ending: %s pid = %d\n",
+		    fprintf(progeny[i].logfile, "Ending: %s: pid = %d\n",
 							str, pid);
 		}
 		progeny[i].pid = 0;
@@ -967,7 +1062,7 @@ reapchild(void)
 }   
 
 /*
- * reassign stdout and stderr to the log file and stdin to ?
+ * reassign stdout and stderr to the log file and stdin to /dev/null
  */
 void
 reopenfds(c)
@@ -976,15 +1071,24 @@ reopenfds(c)
     int		fd = STDERR_FILENO + 1;
 
     /* stderr */
-    if (c->logfd != STDERR_FILENO) {
-	if (dup2(c->logfd, STDERR_FILENO) == -1)
+    if (! q_opt) {
+	if (c->logfd != STDERR_FILENO) {
+	    if (dup2(c->logfd, STDERR_FILENO) == -1)
+		abort();
+	    close(c->logfd);
+	    c->logfd = STDERR_FILENO;
+	}
+	/* stdout */
+	if (dup2(c->logfd, STDOUT_FILENO) == -1)
 	    abort();
-	close(c->logfd);
-	c->logfd = STDERR_FILENO;
+    } else {
+	/* stderr */
+	if (dup2(devnull, STDERR_FILENO) == -1)
+	    abort();
+	/* stdout */
+	if (dup2(devnull, STDOUT_FILENO) == -1)
+	    abort();
     }
-    /* stdout */
-    if (dup2(c->logfd, STDOUT_FILENO) == -1)
-	abort();
     /* stdin */
     if (dup2(devnull, STDIN_FILENO) == -1)
 	abort();
