@@ -1,0 +1,194 @@
+2.1
+	Change default umask to 027 (it was 007) mainly as an
+	attempt to stop people from changing stuff in rancid's CVS
+	store.  Only rancid should be updating its CVS store.
+
+	control_rancid cvs updates router.db before starting a
+	group's collection.
+
+	configure now has a --enable-mail-plus option to have rancid
+	send mail to rancid+$GROUP instead of to rancd-$GROUP.
+	Patch from davidw@certaintysolutions.com.
+
+	configure should figure out diff options on it's own.
+
+	try to get default user from env() and catch exec on id in *login
+
+	make clean/distclean was missing some files
+
+	make sure do-diffs cleans up after itself if it exits prematurely
+
+	ignore case when cvs delete'g removed routers
+
+	francid/rrancid (foundry/redback) now strip snmp communities like
+	the others, via NOCOMMSTR var in bin/env.
+
+	add man pages
+
+	collect 'sh vlan' on cat 6000 - afort@staff.webcentral.com.au
+
+	Add 'show vtp status' for the 3500XLs as well.
+
+	Escape regex meta-chars found in device prompts in *rancid
+
+	Add "include" directive to include other pwd files via .cloginrc
+
+	Add "show port ifindex" for the cat5s.
+
+	Try to detect flash being busy on a cat5.
+
+	Tag each config file with its 'type'.  E.g.:
+		!RANCID-CONTENT-TYPE: cisco
+
+	fix from afort@staff.webcentral.com.au to lg.cgi to allow prefix-list
+	with numerals.
+
+	fix lg form's formatting (on some browsers/conditions).  Thanks to
+	rrashid@verio.net for the html help.
+
+2.1b
+	add looking glass utility based on Ed Kern's original source.  Thanks
+	to Ed for permission to include it with rancid.  this is only partially
+	tested.
+
+	fixed expect foo in *login when .cloginrc is unreadable.
+
+	Don't sort 'ip name-server' - order matters.
+
+2.0
+	Better formatting for cisco catalyst [non-ios] switches.
+
+	Better support the cisco 3500 switches.
+
+	Get some info out of "show version" for the cat5ks.
+	cat5k "show boot" does variables, not bootflash.
+	Skip more goo from 'write term' on some cat5ks.
+
+	Collect 'show module' for 6500-ios.
+
+	Revamp *login's use of .cloginrc's method directive. see
+	cloginrc.sample.
+
+	Add bits for Cisco PIX.  Thanks to joe rizzo@EA for access to a PIX.
+
+	Sort usernames on ciscos.
+	Get more info out of "show diag" on the GSR.
+
+	Add "show chassis sfm detail" for the M160.
+
+	Leave router type in place when telling about changes to
+	router.db.
+
+	Add autoconf (configure) and makefile bits to automate install
+	and perl/expect replacement
+
+1.6
+	Add "dir nvram:" to rancid.
+
+	Add support for ADC EZ T3 mux.  adapted from tkenndedy@verio.net's
+	contrib.
+
+	strip (try to) snmp community strings from cisco and juniper configs
+	if environment variable NOCOMMSTR is set.
+
+	merge tkennedy@verio.net's support for cisco 2900xl into rancid
+
+	Ignore "fan spinning at" noise on junipers.
+
+1.5
+	sync command-line option between clogin / jlogin.  jlogin modified:
+		-x passphrase   ->	-r passphrase
+				->	-x command-file
+		-e encrypt type ->	-y ssh_chyper_type
+
+	add .cloginrc noenable directive to set the cmd-line -noenable
+	option.
+
+	add .cloginrc userprompt, passprompt, and enableprompt directives
+	to adjust expected cisco router prompts in clogin.
+
+	see README for info on web interface to rancid CVS repository.
+
+	Try to detect hung rancid jobs & send email.
+
+	Add (partial) support for the cat5s.  Still need more work
+	on the show output, but it does grab the config.
+
+	Skip the juniper's kernel version, memory, and fsck output
+	of "show system boot-messages" - fsck output changes every
+	time you boot and the version & memory is better found
+	elsewhere.
+
+	Delete the cisco ospf authentication and ftp passwords.
+
+	Get both (juniper) show chassis ssb and scb but only process
+	them once.
+
+	Get info from show diag for 2600s as well.
+
+	Catch juniper "command is not valid on the olive" errors.
+
+	Catch juniper config mismatch between versions of JUNOS.
+
+	Catch close on EOF in clogin/jlogin/flogin.
+
+	Don't expand RCS keywords in config files.
+
+	Catch the case were rancid gets and error and leaves an
+	empty new config file.
+
+	Make the time to elapse before complaining about unreachable
+	routers be configurable instead of fixed at 24 hrs.  The
+	default is now 4 hours.
+
+	Add -x passphrase to jlogin.
+
+	You can now set a ssh identity file in .cloginrc for use
+	with jlogin.
+
+	Handle more errors in jrancid.  Also handle changes for
+	JUNOS 4.0 and collect "show system boot-messages" output.
+
+	rancid now recognizes cisco 12016s and more types of 7200s.
+	It also looks for WARNING messages in show version.
+	And sort ip explicit-paths.
+
+1.4
+	sort cisco route-maps
+
+	added (crude) foundry switch bits
+
+	reworked code to reduce jumps. improvement in speed/cpu util.
+
+	add bits to cvs delete configs which have been removed from
+	a group's router.db.
+
+	add support for redback.  modified from contrib by scao@verio.net.
+
+	add support for ssh in clogin
+
+	modify format of the admin up/down/delete'd msgs.
+
+	add NOPIPE bin/env var
+
+	order ARP lists in cisco configs
+
+1.3
+	update comments re: mail aliases in bin/env
+
+	add more info/clarification to README for install.
+
+1.2
+	add more info/clarification to README for install.
+
+	rename .cloginrc.sample -> cloginrc.sample.
+
+	clogin patch (courtesy stephen stuart); does two things:
+
+	- adds a "-x" switch that takes lines from a file and does the same
+	thing as if you'd specified ;-separated commands with -c (newline
+	separates commands)
+
+	- does a subst on commands in run_commands so that expansion of
+	escapes is performed; e.g. you can say "copy rcp://blah slot0:\r" to
+	answer the question that comes after the copy command.
