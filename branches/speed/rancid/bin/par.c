@@ -568,7 +568,7 @@ dispatch_cmd(cmd, args)
 		**args;
 {
     int		i;
-    static int	cmd_n = 1;
+    static int	cmd_num = 1;
 
     /* block sigchld while we search the child table */
     sigprocmask(SIG_BLOCK, &set_chld, NULL);
@@ -577,7 +577,7 @@ dispatch_cmd(cmd, args)
 	if (progeny[i].pid != 0)
 	    continue;
 
-	progeny[i].n = cmd_n;
+	progeny[i].n = cmd_num++;
 
 	sigprocmask(SIG_UNBLOCK, &set_chld, NULL);
 	return(run_cmd(&progeny[i], cmd, args));
@@ -672,15 +672,9 @@ line_split(line, args)
 		b,
 		c,
 		llen,				/* length of line */
-		len,
 		nargs = 0;
     int		quotes = 0,			/* track double quotes */
-    /*char*/	tick;				/* ptr to single quote */
-
-    /* temp buffer for a single arg. 2* as long as the buf used to read to
-     * reduce the chance of expansion exceeding the length of the buf
-     */
-    char	buf[LINE_MAX * 2];
+		tick;				/* ptr to single quote */
 
     if (args == NULL)
 	abort;
@@ -715,6 +709,7 @@ line_split(line, args)
 	    return(errno);
 	bzero(*args, sizeof(char **) * nargs);
 
+		/* XXX: do we need checks here for exceeding llen? */
 	/*
 	 * copy the args into place.
 	 * preserve and observe shell style quoting as we go.
@@ -768,102 +763,7 @@ line_split(line, args)
 	    default:
 		c++;
 	    }
-#if 0
-	    if (line[c] == '\\') {
-		c++;
-		if (line[c] == '\0')
-			/* XXX: this is not the right error to return */
-		    return(ENOMEM);
-	    } else if (line[c] == '\0' || line[c] == ' ' || line[c] == '\t') {
-		if (( (*args)[argn] =
-				malloc(sizeof(char) * (c - b + 1))) == NULL)
-		    return(ENOMEM);
-
-		bcopy(&line[b], (*args)[argn], (c - b));
-		(*args)[argn][c - b] = '\0';
-
-		if (line[c] == '\0')
-		    break;
-
-		/* skip adjacent spaces */
-		while (line[c] == ' ' || line[c] == '\t')
-		    c++;
-		b = c;
-	    }
-#endif
 	}
-#if 0
-	while (c <= llen) {
-	    /* XXX: need to check buf len before anything */
-	    if ((LINE_MAX * 2) - b < 2)
-		return(ENOMEM);
-
-
-	    switch(line[c]) {
-	    case '\\':
-		if (quotes) {
-		    buf[b++] = line[c++];
-		    buf[b++] = line[c++];
-		} else {
-		    if (line[c + 1] == 'n') {
-			buf[b++] = '\n';
-			c += 2;
-		    } else if (line[c + 1] == 't') {
-			buf[b++] = '\t';
-			c += 2;
-		    } else {
-			buf[b++] = line[++c];
-			c += 2;
-		    }
-		}
-		break;
-	    case '\'':
-		/* shell preserves the meaning of all chars between single
-		 * quotes, including backslashes.  so, it is not possible to
-		 * put a single quote inside a single quoted string in shell.
-		 */
-		c++;
-		if ((tick = index(line + c, '\'')) == NULL) {
-		    /* unmatched quotes */
-		    return(EX_DATAERR);
-		}
-		len = tick - (line + c);
-		if ((b + len + 1) > (LINE_MAX * 2))
-		    return(ENOMEM);
-		bcopy(&line[c], &buf[b], len);
-		c += len + 1; b += len;
-		break;
-	    case '"':
-		/* the shell would recognize $, `, and \ in double-" strings.
-		 * by the time we get it, these chars should not exist and
-		 * thus we we ignore them.  all we deal with are \" and \n.
-		 */
-		quotes ^= 1;
-		c++;
-		break;
-	    case '\t':
-	    case ' ':
-	    case '\0':
-		/* the end of line, copy the last arg */
-		if (!quotes) {
-		    /* make a copy of the buffer for args[argn] */
-		    buf[b++] = '\0';
-		    if (asprintf(&((*args)[argn]), "%s", buf) == -1)
-			return(errno);
-		    argn++; c++; b = 0;
-		    buf[0] = '\0';
-		} else {
-		    if (line[c] == '\0')
-			/* unmatched quotes */
-			return(EX_DATAERR);
-		    buf[b++] = line[c++];
-		}
-		break;
-	    default:
-		buf[b++] = line[c++];
-	    }
-	}
-#endif
     }
 END:
 
@@ -1158,7 +1058,7 @@ xtermcmd(c, cmd)
     child	*c;
     char	**cmd;
 {
-    char	*xterm[] = { "xterm", "-e" },
+    char	*xterm[] = { "xterm", "-e", NULL },
 		*mashed[] = { NULL, NULL },
 		**new;
     int		status;
