@@ -1,4 +1,12 @@
 2.3.2
+	rancid: filter nv_hdr file seen on sup720 - Bill Ouchark
+
+	etc/Makefile.am: support DESTDIR - from Michael Shields
+
+	rancid: add IOX/CRS support.
+
+	hrancid: show stack does not apply to all procurves - Eugene Zagrebelny
+
 	flogin: older foundry o/s has misc spaces preceeding : in username
 	prompt - from mike ethridge
 
