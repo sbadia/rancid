@@ -633,7 +633,6 @@ dispatch_cmd(cmd, args)
     char	**cmd,
 		**args;
 {
-    char	**cmds;
     int		i;
     static int	cmd_n = 1;
 
@@ -762,7 +761,7 @@ line_split(line, args)
         while (*line == ' ' || *line == '\t')
 	    line++;
 	llen = strlen(line);
-        while (line[llen] == ' ' || line[llen] == '\t' && llen > 0)
+        while ((line[llen] == ' ' || line[llen] == '\t') && llen > 0)
 	    llen--;
 
 	/*
@@ -994,7 +993,7 @@ read_input(fname, F, line, cmd, args)
 	case ':':
 	    if (fgets(buf, LINE_MAX + 1, *F) == NULL)
 		goto ERR;
-	    *line++;
+	    (*line)++;
 	    if ((e = line_split(buf, cmd))) {
 			/* XXX: is strerror(e) right? */
 		fprintf(errfp, "Error: %s\n", strerror(e));
@@ -1022,7 +1021,7 @@ NEXT:
     /* next line */
     if (fgets(buf, LINE_MAX + 1, *F) == NULL)
 	goto ERR;
-    *line++;
+    (*line)++;
     if (buf[0] == '#')
 	goto NEXT;
 
@@ -1034,7 +1033,7 @@ NEXT:
     if (buf[e - 1] == '\n') {
 	buf[e - 1] = '\0';
     } /* else
-	/* XXX: finish this */
+	XXX: finish this */
 
     /* split the line into an args[][] */
     if ((e = line_split(buf, args))) {
