@@ -26,6 +26,12 @@
  */
 
 /*
+ * function:	pidfile()
+ *  returns:
+ * synopsis:	creates a PID file.
+ */
+
+/*
  * function:	sm_close()
  *  returns:
  * synopsis:	closes sendmail pipe opened by sm_open().
@@ -47,6 +53,105 @@
 #include <regex.h>
 
 #include <termios.h>
+
+#if ! HAVE_VASPRINTF
+/*
+ * function:	int asprintf()
+ *  returns:	non-zero on malloc failure
+ * synopsis:	emulate asprintf() for platforms without
+ */
+int
+asprintf(ret, format, va_alist)
+    char	**ret;
+    char	*format;
+    va_dcl
+{
+    va_list	ap;
+    int		len,
+		vlen;
+
+    if (ret == NULL)
+	return(-1);
+
+    if (format == NULL) {
+	*ret = NULL;
+	return(0);
+    }
+
+    len = strlen(format) + 1;
+    if (ap != NULL)
+	len = len * 2;
+
+    if ((*ret = (char *) xmalloc(len)) == NULL)
+	    return(-1);
+
+    while (1) {
+	va_start(ap, format);
+	if ((vlen = vsnprintf(*ret, len, format, ap)) <= len) {
+	    va_end(ap);
+	    return(vlen);
+	}
+	va_end(ap);
+	len = vlen + 1;
+	if (xrealloc((void *)ret, len) == NULL) {
+	    free(*ret);
+	    *ret = NULL;
+	    return(-1);
+	}
+    }
+
+    return(0);
+}
+#endif
+
+#if ! HAVE_VASPRINTF
+/*
+ * function:	int vasprintf()
+ *  returns:	non-zero on failure
+ * synopsis:	emulate vasprintf() for platforms without
+ */
+int
+vasprintf(ret, format, ap)
+    char	**ret;
+    char	*format;
+    va_list	ap;
+{
+    int		len,
+		vlen;
+
+    if (ret == NULL)
+	return(-1);
+
+    if (format == NULL) {
+	*ret = NULL;
+	return(0);
+    }
+
+    len = strlen(format) + 1;
+    if (ap != NULL)
+	len = len * 2;
+
+    if ((*ret = (char *) xmalloc(len)) == NULL)
+	    return(-1);
+
+    while (1) {
+	if ((vlen = vsnprintf(*ret, len, format, ap)) < len) {
+	    return(vlen);
+	}
+	len = vlen + 1;
+	if (xrealloc((void *)ret, len) == NULL) {
+	    free(*ret);
+	    *ret = NULL;
+	    return(-1);
+	}
+    }
+
+    return(0);
+}
+#endif
+
+
+
 
 #if 0
 extern char	**environ;
