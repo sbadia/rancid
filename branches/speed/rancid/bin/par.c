@@ -23,6 +23,14 @@
  * the -c or with a : line) any entry thereafter will be applied to the
  * command by replacing the {} brackets.  If no cammand is defined, then each
  * line is assumed to be a command to be run.
+ *
+ * differences from perl version:
+ * - when par rx's a hup/int/term/quit signal, it does not print out the cmds
+ *   that will not be run.
+ * - when par rx's a hup/int/term/quit signal, it does not exit immediately
+ *   after sending kill to running jobs.  it waits for them to exit so that
+ *   they are cleaned-up properly.  if a second signal is rx'd, it dies
+ *   immediately.
  */
 
 #include <config.h>
@@ -53,7 +61,8 @@ typedef struct {
 char		*progname;
 child		*progeny;
 int		debug = 0,
-		chld_wait = 0;			/* there are children */
+		chld_wait = 0,			/* there are children */
+		signaled = 0;			/* kill signal rx'd */
 int		devnull;			/* /dev/null */
 
 /* args */
@@ -261,22 +270,26 @@ main(int argc, char **argv, char **envp)
 	if ((i = line_split(c_opt, &cmd))) {
 	    fprintf(errfp, "Error: failed to build command");
 	    if (i == ENOMEM)
-		fprintf(errfp, ": %s\n", strerror(errno));
+		fprintf(errfp, ": %s\n", strerror(i));
 	    else
 		fprintf(errfp, "\n");
 	} else {
-	    for (i = 0; i < n_opt; i++) {
+	    for (i = 0; !signaled && i < n_opt; i++) {
 		progeny[i].n = i + 1;
 			/* XXX: check retcode from *cmd()? */
 		run_cmd(&progeny[i], cmd, args);
 	    }
-	    arg_free(&args);
+	    if (args != NULL)
+		arg_free(&args);
 	}
     } else if (ifile > 0) {
-	/* input files were specified on the command-line, read each as input */
+	/*
+	 * input files were specified on the command-line, read each as input
+	 */
 	F = NULL; cmd = NULL; args = NULL;
-	for ( ; ifile < argc; ifile++) {
-	    while ((i = read_input(argv[ifile], &F, &line, &cmd, &args)) == 0) {
+	for ( ; !signaled && ifile < argc; ifile++) {
+	    while (!signaled &&
+		(i = read_input(argv[ifile], &F, &line, &cmd, &args)) == 0) {
 		while (dispatch_cmd(cmd, args) == EAGAIN)
 		    pause();
 		if (args != NULL)
@@ -292,10 +305,11 @@ main(int argc, char **argv, char **envp)
 	/* read stdin as input */
 	F = stdin;
 	line = 1; cmd = NULL;  args = NULL;
-	while ((i = read_input("(stdin)", &F, &line, &cmd, &args)) == 0) {
+	while (!signaled &&
+		(i = read_input("(stdin)", &F, &line, &cmd, &args)) == 0) {
 	    while (dispatch_cmd(cmd, args) == EAGAIN)
 		pause();
-	    if (args != NULL)
+	    if (*args != NULL)
 		arg_free(&args);
 	}
 	if (cmd != NULL)
@@ -523,7 +537,7 @@ arg_replace(cmd, args, tail, new)
 		if (ptr[c + 1] == '}') {
 		    if (argn < nargs) {
 			len = strlen(args[argn]);
-			/* XXX: perform shell quoting on the arg */
+			/* perform shell quoting on the arg */
 			a = 0;
 			while (args[argn][a] != '\0') {
 			    if (b >= (LINE_MAX * 2 - 1)) {
@@ -1235,6 +1249,8 @@ handler(sig)
 
     /* block sigchld for the moment, no big deal if it fails */
     sigprocmask(SIG_BLOCK, &set_chld, NULL);
+
+    signaled = 1;
 
     if (debug > 1)
 	fprintf(errfp, "Received signal %d\n", sig);
