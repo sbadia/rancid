@@ -347,19 +347,19 @@ main(int argc, char **argv, char **envp)
  * free space in and of a char[][] from line_split()/arg_replace()
  */
 void
-arg_free(newargs)
-    char	***newargs;
+arg_free(args)
+    char	***args;
 {
     int		i;
 
-    if (newargs == NULL || *newargs == NULL)
+    if (args == NULL || *args == NULL)
 	return;
 
-    for (i = 0; (*newargs)[i] != NULL; i++)
-	free(&(*newargs)[i]);
+    for (i = 0; (*args)[i] != NULL; i++)
+	free((*args)[i]);
 
-    free(*newargs);
-    *newargs = NULL;
+    free(*args);
+    *args = NULL;
 
     return;
 }
@@ -424,7 +424,6 @@ arg_replace(cmd, args, tail, new)
 {
     int			argn = 0,		/* which arg[] is next */
 			len = 0,		/* length of cmd - leading sp */
-			linemax = LINE_MAX,
 			nargs = 0,		/* # of entries in args[][] */
 			ncmds = 0,		/* # of entries in cmd[][] */
 			ntail = 0,		/* # of entries in tail[][] */
@@ -661,7 +660,8 @@ execcmd(c, cmd)
 }
 
 /*
- * split a line into an arg[][] with shell escape/quoting semantics.
+ * split a line into an arg[][] with shell single/double-quoting semantics.
+ * quotes are retained and should be stripped by arg_replace();
  */
 int
 line_split(line, args)
@@ -674,8 +674,8 @@ line_split(line, args)
 		llen,				/* length of line */
 		len,
 		nargs = 0;
-    int		quotes = 0;			/* track double quotes */
-    char	*tick;				/* ptr to single quote */
+    int		quotes = 0,			/* track double quotes */
+    /*char*/	tick;				/* ptr to single quote */
 
     /* temp buffer for a single arg. 2* as long as the buf used to read to
      * reduce the chance of expansion exceeding the length of the buf
@@ -685,7 +685,7 @@ line_split(line, args)
     if (args == NULL)
 	abort;
 
-    /* if line is NULL, just create arg[1][NULL] */
+    /* if line is NULL, just create arg[0][NULL] */
     if (line == NULL) {
         if ((*args = (char **) malloc(sizeof(char **))) == NULL)
 	    return(errno);
@@ -717,14 +717,87 @@ line_split(line, args)
 
 	/*
 	 * copy the args into place.
-	 * unwrap shell style quoting as we go.
+	 * preserve and observe shell style quoting as we go.
 	 */
-	b = c = 0;
-	bzero(buf, LINE_MAX * 2);
+	for (tick = b = c = 0; 1; ) {
+	    switch(line[c]) {
+	    case '\'':
+		tick ^= 1;
+		c++;
+		break;
+	    case '\\':
+		if (! tick) {
+		    c++;
+		    if (line[c] == '\0') {
+			fprintf(errfp, "Error: premature end of input\n");
+				/* XXX: not the right return code */
+			return(ENOMEM);
+		    }
+		}
+		c++;
+		break;
+	    case '\"':
+		if (! tick)
+		    quotes ^= 1;
+		c++;
+		break;
+	    case '\0':
+		if (tick || quotes) {
+		    fprintf(errfp, "Error: unmatched quotes\n");
+			/* XXX: not the right return code */
+		    return(ENOMEM);
+		}
+	    case '\t':
+	    case ' ':
+		if (( (*args)[argn] =
+				malloc(sizeof(char) * (c - b + 1))) == NULL)
+		    return(ENOMEM);
+
+		bcopy(&line[b], (*args)[argn], (c - b));
+		(*args)[argn][c - b] = '\0';
+		argn++;
+
+		if (line[c] == '\0')
+		    goto END;
+
+		/* skip adjacent spaces */
+		while (line[c] == ' ' || line[c] == '\t')
+		    c++;
+		b = c;
+		break;
+	    default:
+		c++;
+	    }
+#if 0
+	    if (line[c] == '\\') {
+		c++;
+		if (line[c] == '\0')
+			/* XXX: this is not the right error to return */
+		    return(ENOMEM);
+	    } else if (line[c] == '\0' || line[c] == ' ' || line[c] == '\t') {
+		if (( (*args)[argn] =
+				malloc(sizeof(char) * (c - b + 1))) == NULL)
+		    return(ENOMEM);
+
+		bcopy(&line[b], (*args)[argn], (c - b));
+		(*args)[argn][c - b] = '\0';
+
+		if (line[c] == '\0')
+		    break;
+
+		/* skip adjacent spaces */
+		while (line[c] == ' ' || line[c] == '\t')
+		    c++;
+		b = c;
+	    }
+#endif
+	}
+#if 0
 	while (c <= llen) {
 	    /* XXX: need to check buf len before anything */
 	    if ((LINE_MAX * 2) - b < 2)
 		return(ENOMEM);
+
 
 	    switch(line[c]) {
 	    case '\\':
@@ -790,7 +863,9 @@ line_split(line, args)
 		buf[b++] = line[c++];
 	    }
 	}
+#endif
     }
+END:
 
     return(0);
 }
@@ -1044,6 +1119,15 @@ run_cmd(c, cmd, args)
 
     if (c == NULL)
 	return(0);
+
+    if (cmd == NULL && args == NULL)
+	return(ENOEXEC);
+
+    /* if cmd is NULL, swap it with args */
+    if (cmd == NULL) {
+	cmd = args;
+	args = NULL;
+    }
 
     /* preform arg subsitution */
     if ((e = arg_replace(cmd, args, NULL, &newcmd)) == 0) {
