@@ -17,8 +17,25 @@
  *
  */
 
-#include <config.h>
-#include <version.h>
+#include <util.h>
+
+/*
+ * function:	mktmp()
+ *  returns:
+ * synopsis:	creates a temporary file.
+ */
+
+/*
+ * function:	sm_close()
+ *  returns:
+ * synopsis:	closes sendmail pipe opened by sm_open().
+ */
+
+/*
+ * function:	sm_open()
+ *  returns:
+ * synopsis:	open sendmail vforks and starts sendmail.
+ */
 
 #include <stdio.h>
 #include <time.h>

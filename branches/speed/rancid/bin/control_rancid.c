@@ -22,6 +22,7 @@
 
 #include <config.h>
 #include <version.h>
+#include <util.h>
 
 #include <stdio.h>
 #include <time.h>
@@ -53,32 +54,23 @@ int		debug = 0,
 int		devnull;			/* /dev/null */
 
 /* args */
-int		e_opt = 0,
-		f_opt = 0,
-		i_opt = 0,
-		n_opt = 3,
-		p_opt = 0,
-		q_opt = 0,
-		x_opt = 0,
-		ifile = 0;			/* argv index to input files */
-char		*c_opt = NULL,
-		*l_opt = "par.log";
+char		*r_opt = NULL,
+		*m_opt = "rancid-admin-GROUP";
 
 FILE		*errfp,				/* stderr fp */
 		*logfile;			/* logfile */
 sigset_t	set_chld;
 
-int		arg_replace __P((char *, char **, char **, char ***));
-int		execcmd __P((child *, char **));
-void		arg_free __P((char ***));
-void		reopenfds __P((child *));
-int		shcmd __P((child *, char **));
-int		xtermcmd __P((child *, char **));
-void		usage __P((void));
-void		vers __P((void));
-void		xtermlog __P((child *));
+int		fill_env    __P((char *, char **, char **, char ***));
+int		read_env    __P((char *, char **, char **, char ***));
+
+void		usage       __P((void));
+void		vers        __P((void));
+
+#if 0
 RETSIGTYPE	reapchild __P((void));
 RETSIGTYPE	handler __P((int));
+#endif
 
 int
 main(int argc, char **argv, char **envp)
@@ -111,54 +103,16 @@ main(int argc, char **argv, char **envp)
     } else
 	errfp = stderr;
 
-    while ((ch = getopt(argc, argv, "defhiqxvc:e:l:n:p:")) != -1 )
+    while ((ch = getopt(argc, argv, "dhvr:m:")) != -1 )
 	switch (ch) {
-	case 'c':	/* command to run */
-	    c_opt = optarg;
-	    break;
 	case 'd':
 	    debug++;
 	    break;
-	case 'e':	/* exec args split by spaces rather than using sh -c */
-	    e_opt = 1;
+	case 'm':	/* mail recipient(s) */
+	    m_opt = optarg;
 	    break;
-	case 'f':	/* no file or stdin, just run quantity of command */
-	    f_opt = 1;
-	    break;
-	case 'l':	/* logfile */
-	    if (q_opt) {
-		fprintf(errfp, "Warning: -q non-sensical with -x or -l\n");
-		q_opt = 0;
-	    }
-	    l_opt = optarg;
-	    break;
-	case 'i':	/* run commands through interactive xterms */
-			/* XXX: -i doesnt make sense with -e */
-	    i_opt = 1;
-	    break;
-	case 'n':	/* number of processes to run to run at once, dflt 3 */
-	    n_opt = atoi(optarg);
-	    if (n_opt < 1) {
-		fprintf(errfp, "Warning: -n < 1 is non-sensical\n");
-		n_opt = 3;
-	    }
-	    break;
-	case 'p':	/* pause # seconds between forks, dflt 0 */
-	    p_opt = atoi(optarg);
-	    break;
-	case 'q':	/* quiet mode (dont log anything to logfiles */
-	    if (x_opt) {
-		fprintf(errfp, "Warning: -q non-sensical with -x or -l\n");
-		x_opt = 0;
-	    }
-	    q_opt = 1;
-	    break;
-	case 'x':	/* view par logs as they run through an xterm */
-	    if (q_opt) {
-		fprintf(errfp, "Warning: -q non-sensical with -x or -l\n");
-		q_opt = 0;
-	    }
-	    x_opt = 1;
+	case 'r':	/* device(s) to collect */
+	    r_opt = optarg;
 	    break;
 	case 'v':
 	    vers();
@@ -169,6 +123,322 @@ main(int argc, char **argv, char **envp)
 	    return(EX_USAGE);
 	}
 
+/* XXX: a group must be supplied */
+#if 0
+	# Must specify a group on which to run rancid
+	if [ $# -lt 1 ]; then
+		echo 'must specify group'; exit 1
+	else
+		GROUP=$1
+#endif
+ 
+/* XXX: for each group, move to the dir */
+#if 0
+	DIR=$BASEDIR/$GROUP
+	TMP=${TMPDIR:=/tmp}/rancid.$GROUP.$$
+	trap 'rm -fr $TMP;' 1 2 15
+
+	## the receipient(s) of diffs
+	mailrcpt=${mailrcpt:-"@MAILPLUS@$GROUP"}; export mailrcpt
+
+	## Number of things par should run in parallel.
+	PAR_COUNT=${PAR_COUNT:-5}
+
+	## Bail if we do not have the necessary info to run
+	if [ ! -d $DIR ]
+	then
+	    echo "$DIR does not exist."
+	    echo "Run bin/create_cvs $GROUP to make all of the needed directories."
+	    (
+		echo "To: @MAILPLUS@admin-$GROUP"
+		echo "Subject: no $GROUP directory"
+		echo "Precedence: bulk"
+		echo ""
+		echo "$DIR does not exist."
+		echo "Run bin/create_cvs $GROUP to make all of the needed directories."
+	    ) | sendmail -t
+	    exit 1
+	fi
+
+	## do cvs update of router.db in case anyone has fiddled.
+	cd $DIR
+	cvs update router.db > $TMP 2>&1
+	grep "^C" $TMP > /dev/null
+	if [ $? -eq 0 ] ; then
+	    echo "There were CVS conflicts during update."
+	    echo ""
+	    cat $TMP
+	    rm -f $TMP
+	    exit 1
+	fi
+	rm -f $TMP
+
+	if [ ! -f $DIR/router.db ]
+	then
+	    (
+		echo "To: @MAILPLUS@admin-$GROUP"
+		echo "Subject: no $GROUP/router.db file"
+		echo "Precedence: bulk"
+		echo ""
+		echo "$DIR/router.db does not exist."
+	    ) | sendmail -t
+	    exit 1;
+	elif [ ! -s $DIR/router.db ]
+	then
+	    exit
+	fi
+#endif
+
+#if 0
+	## generate the list of all, up, & down routers
+	cd $DIR
+	trap 'rm -fr routers.db routers.all.new routers.down.new routers.up.new \
+		$TMP;' 1 2 15
+	grep -v '^#' router.db > routers.db
+	cut -d: -f1,2 routers.db | sort -u > routers.all.new
+	if [ ! -f routers.all ] ; then touch routers.all; fi
+	diff routers.all routers.all.new > /dev/null 2>&1; RALL=$?
+	@PERLV@ -F: -ane {($F[0] =~ tr@A-Z@a-z@,print join(":", @F)."\n")
+	    if ($F[2] !~ /^up$/i);} routers.db | sort -u > routers.down.new
+	if [ ! -f routers.down ] ; then touch routers.down; fi
+	diff routers.down routers.down.new > /dev/null 2>&1; RDOWN=$?
+	@PERLV@ -F: -ane {($F[0] =~ tr@A-Z@a-z@,print "$F[0]:$F[1]\n")
+	    if ($F[2] =~ /^up$/i);} routers.db | sort -u > routers.up.new
+	if [ ! -f routers.up ] ; then touch routers.up; fi
+	diff routers.up routers.up.new > /dev/null 2>&1; RUP=$?
+	
+	if [ $RALL -ne 0 -o $RDOWN -ne 0 -o $RUP -ne 0 ]
+	then
+	    (
+		if [ $RUP -ne 0 ] ; then
+		    if [ $RUP -eq 1 ] ; then
+		        echo Routers changed to up:
+		        comm -13 routers.up routers.up.new | sed -e 's/^/        /'
+		        echo
+		    elif [ -s routers.up.new ] ; then
+		        echo Routers changed to up:
+		        sed -e 's/^/        /' routers.up.new
+		        echo
+		    fi
+		fi
+		if [ $RDOWN -ne 0 ] ; then
+		    if [ $RDOWN -eq 1 ] ; then
+		        echo Routers changed to down:
+		        comm -13 routers.down routers.down.new | sed -e 's/^/        /'
+		        echo
+		    elif [ -s routers.down.new ] ; then
+		        echo Routers changed to down:
+		        sed -e 's/^/        /' routers.down.new
+		        echo
+		    fi
+		fi
+		WC=`wc -l routers.all | sed -e 's/^ *\([^ ]*\) .*$/\1/'`
+		WCNEW=`wc -l routers.all.new | sed -e 's/^ *\([^ ]*\) .*$/\1/'`
+		if [ $RALL -eq 1 -a $WC -gt $WCNEW ] ; then
+		    echo Deleted routers:
+		    comm -23 routers.all routers.all.new | sed -e 's/^/        /'
+		fi
+	    ) > routers.mail
+	
+	    if [ -s routers.mail ] ; then
+		(
+		  echo "To: @MAILPLUS@admin-$GROUP"
+		  echo "Subject: changes in $GROUP routers"
+		  echo "Precedence: bulk"
+		  echo ""
+		  cat routers.mail
+		) | sendmail -t
+	    fi
+	    rm -f routers.mail
+	
+	    cd $DIR/configs
+
+	    # Add new routers to the CVS structure.
+	    for router in `comm -13 $DIR/routers.up $DIR/routers.up.new`
+	    do
+		OFS=$IFS
+		IFS=:
+		set $router
+		IFS=$OFS
+		router=$1
+	
+		touch $router
+		cvs add -ko $router
+		cvs commit -m 'new router' $router
+		echo "Added $router"
+	    done
+	    echo
+	    cd $DIR
+	fi
+	mv routers.all.new routers.all
+	mv routers.down.new routers.down
+	mv routers.up.new routers.up
+	rm -f routers.db
+	trap 'rm -fr $TMP;' 1 2 15
+	
+	cd $DIR/configs
+	## check for 'up' routers missing in cvs.  no idea how this happens to some folks
+	for router in `cut -d: -f1 ../routers.up` ; do
+	    cvs status $router | grep -i 'status: unknown' > /dev/null 2>&1
+	    if [ $? -eq 0 ]; then
+		touch $router
+		cvs add -ko $router
+		echo "CVS added missing router $router"
+	    fi
+	    echo
+	done
+	## cvs delete configs for routers not listed in routers.up.
+	for router in `find . \( -name \*.new -prune -o -name CVS -prune \) -o -type f -print | sed -e 's/^.\///'` ; do
+	    grep -i "^$router:" ../router.db > /dev/null 2>&1
+	    if [ $? -eq 1 ]; then
+		rm -f $router
+		cvs delete $router
+		cvs commit -m 'deleted router' $router
+		echo "Deleted $router"
+	    fi
+	done
+	cd $DIR
+	
+	## no routers, empty list or all 'down'
+	if [ ! -s routers.up ]
+	then
+	    ## commit router.db
+	    cvs commit -m updates router.db > /dev/null
+	    exit;
+	fi
+	
+	## if a device (-r) was specified, see if that device is in this group
+	if [ "X$device" != "X" ] ; then
+	    trap 'rm -fr $TMP $DIR/routers.single;' 1 2 15
+	    devlistfile="$DIR/routers.single"
+	    grep "^$device:" routers.up > $devlistfile
+	    if [ $? -eq 1 ] ; then
+		exit;
+	    fi
+	else
+	    devlistfile="$DIR/routers.up"
+	fi
+	
+	## Now we can actually try to get the configs
+	cd $DIR/configs
+#endif
+
+#if 0
+	## The number of processes running at any given time can be
+	## tailored to the specific installation.
+	echo "Trying to get all of the configs."
+	par -q -n $PAR_COUNT -c "rancid-fe \{}" $devlistfile
+	
+	## This section will generate a list of missed routers
+	## and try to grab them again.  It will run through
+	## $pass times.
+	pass=4
+	round=1
+	if [ -f $DIR/routers.up.missed ]; then
+	    rm -f $DIR/routers.up.missed
+	fi
+	while [ $round -le $pass ]
+	do
+	    for router in `cat $devlistfile`
+	    do
+		OFS=$IFS
+		IFS=':'
+		set $router
+		IFS=$OFS
+		router=$1; mfg=$2
+	
+		if [ ! -s $router.new ]
+		then
+		    echo "$router:$mfg" >> $DIR/routers.up.missed
+		    rm -f $router.new
+		fi
+	    done
+	
+	    if [ -f $DIR/routers.up.missed ]; then
+		echo "====================================="
+		echo "Getting missed routers: round $round."
+		par -q -n $PAR_COUNT -c "rancid-fe \{}" $DIR/routers.up.missed
+		rm -f $DIR/routers.up.missed
+		round=`expr $round + 1`
+	    else
+		echo "All routers sucessfully completed."
+		round=`expr $pass + 1`
+	    fi
+	done
+	echo
+	
+	## Make sure that all of the new configs are not empty.
+	for config in *.new
+	do
+	    if [ ! -s $config ]
+	    then
+		rm -f $config
+	    fi
+	done
+	
+	## Now that we have the new configs, rename them to their proper
+	## name.
+	rename 's/.new$//' *.new
+
+	## This has been different for different machines...
+	## Diff the directory and then checkin.
+	trap 'rm -fr $TMP $TMP.diff $DIR/routers.single;' 1 2 15
+	cd $DIR
+	cvs -f @DIFF_CMD@ | sed -e '/^RCS file: /d' -e '/^--- /d' \
+		-e '/^+++ /d' -e 's/^\([-+ ]\)/\1 /' >$TMP.diff
+	
+	if [ $alt_mailrcpt -eq 1 ] ; then
+	    subject="router config diffs - courtesy of $mailrcpt"
+	else
+	    subject="router config diffs"
+	fi
+	if [ "X$device" != "X" ] ; then
+	    cvs commit -m "updates - courtesy of $mailrcpt"
+	    subject="$GROUP/$device $subject"
+	else
+	    cvs commit -m updates
+	    subject="$GROUP $subject"
+	fi
+	
+	## Mail out the diffs (if there are any).
+	if [ -s $TMP.diff ]; then
+	    sendmail -t <<EMAIL
+	To: $mailrcpt
+	Subject: $subject
+	Precedence: bulk
+	
+	`cat $TMP.diff`
+	EMAIL
+	fi
+
+	## If any machines have not been reached within the last $OLDTIME
+	## hours, mail out a list of them.
+	cd $DIR/configs
+	rm -f $DIR/routers.failed
+	if [ "X$OLDTIME" = "X" ] ; then
+	    OLDTIME=24
+	fi
+	@PERLV@ -F: -ane "{\$t = (stat(\$F[0]))[9]; print \`ls -ld \$F[0]\`
+		if (time() - \$t >= $OLDTIME*60*60);}" $devlistfile | sort -u > $DIR/routers.failed
+	if [ -s $DIR/routers.failed ]
+	then
+		(
+		  echo "To: @MAILPLUS@admin-$GROUP"
+		  echo "Subject: config fetcher problems - $GROUP"
+		  echo "Precedence: bulk"
+		  echo ""
+		  echo "The following routers have not been successfully contacted for"
+		  echo "more than $OLDTIME hours."
+	
+		  cat $DIR/routers.failed
+		) | sendmail -t
+	fi
+	
+	## Cleanup
+	rm -f $TMP.diff $DIR/routers.single
+	trap '' 1 2 15
+#endif
+#if 0
     /* -f requires -c */
     if (f_opt && ! c_opt) {
 	fprintf(errfp, "usage: -f requires -c option\n");
@@ -304,71 +574,12 @@ main(int argc, char **argv, char **envp)
 	    break;
 	chld_wait = 0;
     }
-
-#if 0
-for($i=0; ($no_file || ($_=<>)) ;$i++) {
-    chop;
-    if (/^\#/){$i--;next;}
-    if ($opt_c == "" && /^:(.*)$/) {
-	$command=$1;$i--;next;
-    }
-    if ($i<$procs) {
-	$logfile="running.$i"; $logfile="$parlog.$i" if (!$opt_q);
-    } else {
-	$logfile=finish;
-    }
-    last if $signalled;
-    if ($logfile) {
-        $cmd = $command;
-        $cmd =~ s/\{\}/$_/g;
-	$cmd = "xterm -e $cmd" if ($opt_i);
-        $id=start($cmd,$logfile);
-	watchf($logfile) if($opt_x);
-        $log{$id} = $logfile;
-    }
-    print STDERR "$i/$procs: $_: id=$id, log=$log{$id}\n" if ($debug);
-    sleep($pause_time) if ($pause_time);
-}
 #endif
-#if 0
-    local($cmd,$logfile)=@_;
-    unless ($id=fork) {
-	if (!$opt_q) {
-	    local($date)=scalar localtime;
-	    open(LOG,">>$logfile");
-	    print(LOG "!!!!!!!\n!$date: $cmd\n!!!!!!!\n");
-	    close(LOG);
-	    exec "($cmd) >>$logfile";
-	} else {
-            if($opt_e) {
-                # Dont use sh -c.
-	        exec split(/\s+/, $cmd);
-            }
-	    exec "($cmd)";
-	}
-        exit 0;
-    }
-    print STDERR "Starting $cmd: process id=$id logfile=$logfile\n" if ($debug);
-    $id;
-if($signalled && !eof) {
-    $i--;
-    print STDERR "Signalled - not running these:\n$_\n";
-    while(<>){print STDERR;}
-}
-#endif
-
-    /* close the log files */
-    for (i = 0; i < n_opt; i++) {
-	if (progeny[i].logfile != NULL)
-	    fclose(progeny[i].logfile);
-    }
-
-    if (debug)
-	fprintf(errfp, "Complete\n");
 
     return(EX_OK);
 }
 
+#if 0
 /*
  * arg to sh -c used in shcmd() must be 1 argument.  returns 0 else errno.
  *
@@ -1092,12 +1303,13 @@ reopenfds(c)
 
     return;
 }
+#endif
 
 void
 usage(void)
 {
     fprintf(errfp,
-"usage: %s [-dfiqx] [-n #] [-p n] [-l logfile] [-c command] [<command file>]
+"usage: %s [-r device_name] [-m mail rcpt] [group [group ...]]
 ", progname);
     return;
 }
