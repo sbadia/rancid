@@ -1,0 +1,37 @@
+.\"
+.hys 50
+.TH "control_rancid" "1" "22 Jan 2001"
+.SH NAME
+control_rancid \- run rancid for devices of a group
+.SH SYNOPSIS
+.B create_cvs
+[\c
+.BI \-r\ \c
+device_name]\ \c
+group
+.SH DESCRIPTION
+.B control_rancid
+is a
+.IR sh (1)
+script to parse a group's
+.BR router.db (5),
+run rancid for each of the devices, possibly re-run rancid for missed devices,
+e-mail diffs, and e-mail error reports.
+.\"
+.PP
+.\"
+The command-line options are as follows:
+.TP
+.B \-r device_name
+Specify the name, as it appears in the router.db, of a particular device 
+to collect and generate diffs for.  The device must be marked "up".
+.\"
+.PP
+.B control_rancid
+is normally (and best) run via
+.BR do-diffs (1).
+.\"
+.SH SEE ALSO
+.BR do-diffs (1),
+.BR env (5),
+.BR router.db (5)
