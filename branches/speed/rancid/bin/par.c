@@ -25,8 +25,6 @@
  * line is assumed to be a command to be run.
  */
 
-#define DFLT_TO	60				/* default timeout */
-
 #include <config.h>
 #include <version.h>
 
@@ -312,58 +310,6 @@ main(int argc, char **argv, char **envp)
 	chld_wait = 0;
     }
 
-#if 0
-for($i=0; ($no_file || ($_=<>)) ;$i++) {
-    chop;
-    if (/^\#/){$i--;next;}
-    if ($opt_c == "" && /^:(.*)$/) {
-	$command=$1;$i--;next;
-    }
-    if ($i<$procs) {
-	$logfile="running.$i"; $logfile="$parlog.$i" if (!$opt_q);
-    } else {
-	$logfile=finish;
-    }
-    last if $signalled;
-    if ($logfile) {
-        $cmd = $command;
-        $cmd =~ s/\{\}/$_/g;
-	$cmd = "xterm -e $cmd" if ($opt_i);
-        $id=start($cmd,$logfile);
-	watchf($logfile) if($opt_x);
-        $log{$id} = $logfile;
-    }
-    print STDERR "$i/$procs: $_: id=$id, log=$log{$id}\n" if ($debug);
-    sleep($pause_time) if ($pause_time);
-}
-#endif
-#if 0
-    local($cmd,$logfile)=@_;
-    unless ($id=fork) {
-	if (!$opt_q) {
-	    local($date)=scalar localtime;
-	    open(LOG,">>$logfile");
-	    print(LOG "!!!!!!!\n!$date: $cmd\n!!!!!!!\n");
-	    close(LOG);
-	    exec "($cmd) >>$logfile";
-	} else {
-            if($opt_e) {
-                # Dont use sh -c.
-	        exec split(/\s+/, $cmd);
-            }
-	    exec "($cmd)";
-	}
-        exit 0;
-    }
-    print STDERR "Starting $cmd: process id=$id logfile=$logfile\n" if ($debug);
-    $id;
-if($signalled && !eof) {
-    $i--;
-    print STDERR "Signalled - not running these:\n$_\n";
-    while(<>){print STDERR;}
-}
-#endif
-
     /* close the log files */
     for (i = 0; i < n_opt; i++) {
 	if (progeny[i].logfile != NULL)
@@ -628,7 +574,6 @@ execcmd(c, args)
 		*mashed[] = { NULL, NULL },
 		**newargs;
     int		status;
-    pid_t	pid;
     time_t	t;
 
     /* XXX: is this right? */
@@ -636,17 +581,17 @@ execcmd(c, args)
 	return(ENOEXEC);
 
     /* build newargs */
-    if ((pid = arg_mash(&mashed, args))) {		/* simply for the log */
+    if ((status = arg_mash(&mashed, args))) {		/* simply for the log */
 	/* XXX: is this err msg always proper? will only ret true or ENOMEM? */
 	fprintf(errfp, "Error: memory allocation failed: %s\n",
 		strerror(errno));
-	return(pid);
+	return(status);
     }
-    if ((pid = arg_replace(cmd, NULL, args, &newargs))) {
+    if ((status = arg_replace(cmd, NULL, args, &newargs))) {
 	/* XXX: is this err msg always proper? will only ret true or ENOMEM? */
 	fprintf(errfp, "Error: memory allocation failed: %s\n",
 		strerror(errno));
-	return(pid);
+	return(status);
     }
 
     /* block sigchld so we quickly reap it ourselves */
@@ -660,17 +605,13 @@ execcmd(c, args)
 	fflush(c->logfile);
     }
 
-    if ((pid = fork()) == 0) {
+    if ((c->pid = fork()) == 0) {
 	/* child */
 	signal(SIGCHLD, SIG_DFL);
         sigprocmask(SIG_UNBLOCK, &set_chld, NULL);
 	if (debug > 1) {
-		/* XXX: build a complete cmd line */
-	    if (c->logfile != NULL)
-		fprintf(c->logfile, "fork(sh -c %s ...) pid %d\n", mashed[0],
-								getpid());
 	    fprintf(errfp, "fork(sh -c %s ...) pid %d\n", mashed[0],
-								getpid());
+								c->pid);
 	}
 	/* reassign stdout and stderr to the log file, stdin to /dev/null */
 	reopenfds(c);
@@ -682,20 +623,17 @@ execcmd(c, args)
 	exit(EX_UNAVAILABLE);
     } else {
 	if (debug)
-		/* XXX: build a complete cmd line */
-	    if (c->logfname == NULL)
-		fprintf(errfp, "\nStarting %d/%d %s: process id=%d\n",
-			c->n, n_opt, mashed[0], pid);
-	    else
-		fprintf(errfp, "\nStarting %d/%d %s: process id=%d "
-			"logfile=%s\n", c->n, n_opt, mashed[0], pid,
-			c->logfname);
-	if (pid == -1) {
+	    fprintf(errfp, "\nStarting %d/%d %s: process id=%d\n",
+					c->n, n_opt, mashed[0], c->pid);
+	if (c->pid == -1) {
 	    fprintf(errfp, "Error: exec(sh -c) failed: %s\n", strerror(errno));
 	    waitpid(c->pid, &status, WNOHANG);
-	} else
-	    c->pid = pid;
+	    c->pid = 0;
+	}
     }
+
+    if (mashed[0] != NULL)
+	free(mashed[0]);
 
     sigprocmask(SIG_UNBLOCK, &set_chld, NULL);
 
@@ -749,7 +687,6 @@ shcmd(c, args)
 		*mashed[] = { NULL, NULL },
 		**newargs;
     int		status;
-    pid_t	pid;
     time_t	t;
 
     /* XXX: is this right? */
@@ -757,17 +694,17 @@ shcmd(c, args)
 	return(ENOEXEC);
 
     /* build newargs */
-    if ((pid = arg_mash(&mashed, args))) {
+    if ((status = arg_mash(&mashed, args))) {
 	/* XXX: is this err msg always proper? will only ret true or ENOMEM? */
 	fprintf(errfp, "Error: memory allocation failed: %s\n",
 		strerror(errno));
-	return(pid);
+	return(status);
     }
-    if ((pid = arg_replace(cmd, NULL, mashed, &newargs))) {
+    if ((status = arg_replace(cmd, NULL, mashed, &newargs))) {
 	/* XXX: is this err msg always proper? will only ret true or ENOMEM? */
 	fprintf(errfp, "Error: memory allocation failed: %s\n",
 		strerror(errno));
-	return(pid);
+	return(status);
     }
 
     /* block sigchld so we quickly reap it ourselves */
@@ -781,16 +718,12 @@ shcmd(c, args)
 	fflush(c->logfile);
     }
 
-    if ((pid = fork()) == 0) {
+    if ((c->pid = fork()) == 0) {
 	/* child */
 	signal(SIGCHLD, SIG_DFL);
         sigprocmask(SIG_UNBLOCK, &set_chld, NULL);
 	if (debug > 1) {
-		/* XXX: build a complete cmd line */
-	    if (c->logfile != NULL)
-		fprintf(c->logfile, "fork(sh -c %s ...) pid %d\n", mashed[0],
-								getpid());
-	    fprintf(errfp, "fork(sh -c %s ...) pid %d\n", mashed[0], getpid());
+	    fprintf(errfp, "fork(sh -c %s ...) pid %d\n", mashed[0], c->pid);
 	}
 	/* reassign stdout and stderr to the log file, stdin to /dev/null */
 	reopenfds(c);
@@ -802,19 +735,12 @@ shcmd(c, args)
 	exit(EX_UNAVAILABLE);
     } else {
 	if (debug)
-		/* XXX: build a complete cmd line */
-	    if (c->logfname == NULL)
-		fprintf(errfp, "\nStarting %d/%d %s: process id=%d\n",
-			c->n, n_opt, mashed[0], pid);
-	    else
-		fprintf(errfp, "\nStarting %d/%d %s: process id=%d "
-			"logfile=%s\n", c->n, n_opt, mashed[0], pid,
-			c->logfname);
-	if (pid == -1) {
+	    fprintf(errfp, "\nStarting %d/%d %s: process id=%d\n",
+					c->n, n_opt, mashed[0], c->pid);
+	if (c->pid == -1) {
 	    fprintf(errfp, "Error: exec(sh -c) failed: %s\n", strerror(errno));
 	    waitpid(c->pid, &status, WNOHANG);
-	} else {
-	    c->pid = pid;
+	    c->pid = 0;
 	}
     }
 
@@ -838,7 +764,6 @@ xtermcmd(c, args)
 		*mashed[] = { NULL, NULL },
 		**newargs;
     int		status;
-    pid_t	pid;
     time_t	t;
 
     /* XXX: is this right? */
@@ -846,17 +771,17 @@ xtermcmd(c, args)
 	return(ENOEXEC);
 
     /* build newargs */
-    if ((pid = arg_mash(&mashed, args))) {
+    if ((status = arg_mash(&mashed, args))) {
 	/* XXX: is this err msg always proper? will only ret true or ENOMEM? */
 	fprintf(errfp, "Error: memory allocation failed: %s\n",
 		strerror(errno));
-	return(pid);
+	return(status);
     }
-    if ((pid = arg_replace(cmd, NULL, args, &newargs))) {
+    if ((status = arg_replace(cmd, NULL, args, &newargs))) {
 	/* XXX: is this err msg always proper? will only ret true or ENOMEM? */
 	fprintf(errfp, "Error: memory allocation failed: %s\n",
 		strerror(errno));
-	return(pid);
+	return(status);
     }
 
     /* block sigchld so we quickly reap it ourselves */
@@ -870,16 +795,12 @@ xtermcmd(c, args)
 	fflush(c->logfile);
     }
 
-    if ((pid = fork()) == 0) {
+    if ((c->pid = fork()) == 0) {
 	/* child */
 	signal(SIGCHLD, SIG_DFL);
         sigprocmask(SIG_UNBLOCK, &set_chld, NULL);
 	if (debug > 1) {
-		/* XXX: build a complete cmd line */
-	    if (c->logfile != NULL)
-		fprintf(c->logfile, "fork(sh -c %s ...) pid %d\n", mashed[0],
-								getpid());
-	    fprintf(errfp, "fork(sh -c %s ...) pid %d\n", mashed[0], getpid());
+	    fprintf(errfp, "fork(sh -c %s ...) pid %d\n", mashed[0], c->pid);
 	}
 	/* reassign stdout and stderr to the log file, stdin to /dev/null */
 	reopenfds(c);
@@ -891,19 +812,12 @@ xtermcmd(c, args)
 	exit(EX_UNAVAILABLE);
     } else {
 	if (debug)
-		/* XXX: build a complete cmd line */
-	    if (c->logfname == NULL)
-		fprintf(errfp, "\nStarting %d/%d %s: process id=%d\n",
-			c->n, n_opt, mashed[0], pid);
-	    else
-		fprintf(errfp, "\nStarting %d/%d %s: process id=%d "
-			"logfile=%s\n", c->n, n_opt, mashed[0], pid,
-			c->logfname);
-	if (pid == -1) {
+	    fprintf(errfp, "\nStarting %d/%d %s: process id=%d\n",
+					c->n, n_opt, mashed[0], c->pid);
+	if (c->pid == -1) {
 	    fprintf(errfp, "Error: exec(sh -c) failed: %s\n", strerror(errno));
 	    waitpid(c->pid, &status, WNOHANG);
-	} else {
-	    c->pid = pid;
+	    c->pid = 0;
 	}
     }
 
@@ -940,7 +854,8 @@ xtermlog(c)
 	}
 	/*
 	 * set the process group id so signals are not delivered to the
-	 * logging xterms.  in theory, we want them for a reason.
+	 * logging xterms.  in theory, we want them for a reason, so we
+	 * dont want them to die when par exits.
 	 */
 	setpgid(0, getpid());
 
@@ -1062,7 +977,8 @@ reapchild(void)
 }   
 
 /*
- * reassign stdout and stderr to the log file and stdin to /dev/null
+ * reassign stdout and stderr to the log file and stdin to /dev/null.
+ * called before exec()s.
  */
 void
 reopenfds(c)
