@@ -1850,7 +1850,7 @@ fi
 done
 
 
-for ac_hdr in errno.h fcntl.h sys/types.h sys/wait.h
+for ac_hdr in errno.h fcntl.h stdlib.h sys/types.h sys/wait.h
 do
 ac_safe=`echo "$ac_hdr" | sed 'y%./+-%__p_%'`
 echo $ac_n "checking for $ac_hdr""... $ac_c" 1>&6
@@ -2560,7 +2560,7 @@ rd_cv_rd_bin_datas=$RD_BIN_DATAS
 # RD_BIN_PROGS are bin/ .in's that need to be installed with execute perms.
 RD_BIN_PROGS="cat5rancid control_rancid \
 alogin arancid clogin create_cvs blogin brancid do-diffs elogin erancid \
-f10rancid flogin francid jlogin jrancid hlogin hrancid mrancid par rancid-fe \
+f10rancid flogin francid jlogin jrancid hlogin hrancid mrancid rancid-fe \
 rancid rename rrancid xrancid"
 
 rd_cv_rd_bin_progs=$RD_BIN_PROGS
@@ -3107,7 +3107,7 @@ trap 'rm -fr `echo " Makefile include/Makefile bin/Makefile util/Makefile \
 	bin/clogin bin/control_rancid bin/create_cvs bin/do-diffs bin/elogin \
 	bin/env bin/erancid bin/f10rancid bin/flogin bin/francid bin/jlogin \
 	bin/jrancid bin/hlogin \
-	bin/hrancid bin/mrancid bin/par bin/rancid-fe bin/rancid bin/rename \
+	bin/hrancid bin/mrancid bin/rancid-fe bin/rancid bin/rename \
 	bin/rrancid bin/xrancid \
 	man/Makefile man/env.5 man/lg.conf.5 man/lg_intro.1 \
 	include/version.h \
@@ -3237,7 +3237,7 @@ CONFIG_FILES=\${CONFIG_FILES-"Makefile include/Makefile bin/Makefile util/Makefi
 	bin/clogin bin/control_rancid bin/create_cvs bin/do-diffs bin/elogin \
 	bin/env bin/erancid bin/f10rancid bin/flogin bin/francid bin/jlogin \
 	bin/jrancid bin/hlogin \
-	bin/hrancid bin/mrancid bin/par bin/rancid-fe bin/rancid bin/rename \
+	bin/hrancid bin/mrancid bin/rancid-fe bin/rancid bin/rename \
 	bin/rrancid bin/xrancid \
 	man/Makefile man/env.5 man/lg.conf.5 man/lg_intro.1 \
 	include/version.h \
@@ -3415,7 +3415,7 @@ EOF
 cat >> $CONFIG_STATUS <<\EOF
 test -z "$CONFIG_HEADERS" || echo timestamp > include/stamp-h
 \
-	 chmod a+x bin/*login bin/*rancid bin/par 
+	 chmod a+x bin/*login bin/*rancid 
 	
 exit 0
 EOF
