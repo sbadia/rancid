@@ -1,4 +1,8 @@
-	bin/par changes - add -p, -f, and -e options
+	improve speed by implementing pieces in C
+
+3.0 eft
+	bin/par in C.  changes - add -p, -f, and -e options
+
 2.3
 	rancid: GSR LC PCA h/w revision now called "design release" on
 	some platforms.  CSCdw13295

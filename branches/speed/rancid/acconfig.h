@@ -5,18 +5,24 @@
 
 @BOTTOM@
 
+/* Define this to include setenv() emulation. */
+#undef HAVE_SETENV
+
+/* Define this to include vasprintf() emulation. */
+#undef HAVE_VASPRINTF
+
+#define BUF_SZ		LINE_MAX	/* (increments of) size of bufs */
+
+#if HAVE_STDLIB_H
+# include <stdlib.h>
+#endif
+
 #ifndef __P
 # if STDC_HEADERS
 #  define __P(a)	a
 # else
 #  define __P(a)	()
 # endif
-#endif
-
-#define BUF_SZ		LINE_MAX	/* (increments of) size of bufs */
-
-#if HAVE_STDLIB_H
-# include <stdlib.h>
 #endif
 
 #if HAVE_UNISTD_H       
