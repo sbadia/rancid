@@ -13,16 +13,9 @@
  * anything else.
  *
  *
- * PAR - parallel processing of command
+ * usage: control_rancid $GROUP
  *
- * par runs a command N times in parallel.  It will accept a list of arguments
- * for command-line replacement in the command.  If the list entry begins
- * with a ":" the remainder of the line is the command to run ("{}" will be
- * replaced with each subsequent item in the list).  If the list entry begins
- * with a "#", the entry is ignored.  If a command is defined (either with
- * the -c or with a : line) any entry thereafter will be applied to the
- * command by replacing the {} brackets.  If no cammand is defined, then each
- * line is assumed to be a command to be run.
+ * provides basic control of rancid.
  */
 
 #define DFLT_TO	60				/* default timeout */
