@@ -226,7 +226,8 @@ main(int argc, char **argv, char **envp)
     if (! q_opt) {
 	for (i = 0; i < n_opt; i++) {
 	    /* open the logfile or use stderr */
-	    if (asprintf(&progeny[i].logfname, "%s.%lu.%d", l_opt, t, i) < 1) {
+	    if (asprintf(&progeny[i].logfname,
+				"%s.%lu.%d", l_opt, (ulong) t, i) < 1) {
 		fprintf(errfp, "Error: could not allocate space for process "
 			"%d's log filename\n", i);
 		exit(EX_TEMPFAIL);
@@ -739,7 +740,7 @@ line_split(line, args)
 		tick;				/* ptr to single quote */
 
     if (args == NULL)
-	abort;
+	abort();
 
     /* if line is NULL, just create arg[0][NULL] */
     if (line == NULL) {
