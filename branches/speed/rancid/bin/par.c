@@ -405,7 +405,8 @@ arg_mash(dst, src)
  * from args[][].  any {}s not matching up to an arg are replaced with "".
  *
  * args found in tail[][] are concatenated to the end newargs[][] without any
- * interpretation.
+ * interpretation.  ie: if arg_replace() were already call but something needs
+ * to be prepended or appended.
  *
  * it returns an argv[][] which begins with the command followed by the args
  * and is null terminated in newargs that is suitable for execvp() and 0 or
@@ -427,12 +428,10 @@ arg_replace(cmd, args, tail, new)
 			nargs = 0,		/* # of entries in args[][] */
 			ncmds = 0,		/* # of entries in cmd[][] */
 			ntail = 0,		/* # of entries in tail[][] */
-			quotes,			/* " quoted string toggle */
-			spaces = 0;		/* number of space in cmd */
-    char	*lcmd,				/* local copy of cmd */
-			*tick = NULL,		/* ' quoted string */
+			quotes;			/* " quoted string toggle */
+    char		*tick = NULL,		/* ' quoted string */
 			*ptr;
-    register int	n, c, t;
+    register int	b, c, n;
     char		buf[LINE_MAX * 2];	/* temporary space */
 
     /* if new is null, that is an internal error */
@@ -449,9 +448,8 @@ arg_replace(cmd, args, tail, new)
 	while (tail[ntail] != NULL)
 	    ntail++;
 
-    /* create space for first_arg + spaces + last_arg + NULL terminator */
-    if ((*new = (char **)
-			malloc(sizeof(char *) * (ncmds + ntail + 1))) == NULL)
+    /* create space for ncmds + ntail + NULL terminator */
+    if ((*new = (char **) malloc(sizeof(char *) * (ncmds + ntail + 1))) == NULL)
 	return(ENOMEM);
     bzero(*new, sizeof(char *) * (ncmds + ntail + 1));
 
@@ -461,229 +459,101 @@ arg_replace(cmd, args, tail, new)
      */
     bzero(buf, LINE_MAX * 2);
     for (n = 0; n < ncmds; n++) {
-	c = t = 0;
+	c = b = 0;
+	ptr = cmd[n];
 	while (cmd[n][c] != '\0') {
-	    switch (cmd[n][c]) {
-#if 0
-	while (c <= llen) {
-	    /* XXX: need to check buf len before anything */
+	    /* check buf len to be sure space remains */
 	    if ((LINE_MAX * 2) - b < 2)
 		return(ENOMEM);
 
-	    switch(line[c]) {
+	    switch (ptr[c]) {
 	    case '\\':
 		if (quotes) {
-		    buf[b++] = line[c++];
-		    buf[b++] = line[c++];
+		    buf[b++] = ptr[c++];
+		    buf[b++] = ptr[c++];
 		} else {
-		    if (line[c + 1] == 'n') {
+		    if (ptr[c + 1] == 'n') {
 			buf[b++] = '\n';
 			c += 2;
-		    } else if (line[c + 1] == 't') {
+		    } else if (ptr[c + 1] == 'r') {
+			buf[b++] = '\r';
+			c += 2;
+		    } else if (ptr[c + 1] == 't') {
 			buf[b++] = '\t';
 			c += 2;
 		    } else {
-			buf[b++] = line[++c];
+			buf[b++] = ptr[++c];
 			c += 2;
 		    }
 		}
 		break;
 	    case '\'':
-		/* shell preserves the meaning of all chars between single
+		/*
+		 * shell preserves the meaning of all chars between single
 		 * quotes, including backslashes.  so, it is not possible to
 		 * put a single quote inside a single quoted string in shell.
 		 */
 		c++;
-		if ((tick = index(line + c, '\'')) == NULL) {
+		if ((tick = index(ptr + c, '\'')) == NULL) {
 		    /* unmatched quotes */
 		    return(EX_DATAERR);
 		}
-		len = tick - (line + c);
+		len = tick - (ptr + c);
 		if ((b + len + 1) > (LINE_MAX * 2))
 		    return(ENOMEM);
-		bcopy(&line[c], &buf[b], len);
+		bcopy(&ptr[c], &buf[b], len);
 		c += len + 1; b += len;
 		break;
 	    case '"':
-		/* the shell would recognize $, `, and \ in double-" strings.
-		 * by the time we get it, these chars should not exist and
-		 * thus we we ignore them.  all we deal with are \" and \n.
+		/*
+		 * the shell would recognize <dollar-sign>, <back-tick>, and
+		 * <back-slash> in double-quoted strings.  we will do
+		 * like-wise, though <back-tick> is meaning-less to us.
 		 */
 		quotes ^= 1;
 		c++;
 		break;
-	    case '\t':
-	    case ' ':
-	    case '\0':
-		/* the end of line, copy the last arg */
-		if (!quotes) {
-		    /* make a copy of the buffer for args[argn] */
-		    buf[b++] = '\0';
-		    if (asprintf(&((*args)[argn]), "%s", buf) == -1)
-			return(errno);
-		    argn++; c++; b = 0;
-		    buf[0] = '\0';
-		} else {
-		    if (line[c] == '\0')
-			/* unmatched quotes */
-			return(EX_DATAERR);
-		    buf[b++] = line[c++];
+	    case '{':
+		/* insert arg[n], if the next char is '}' */
+		if (ptr[c + 1] == '}') {
+		    len = strlen(args[argn]);
+		    if ((b + len) < (LINE_MAX * 2)) {
+			bcopy(args[argn], &buf[b], len);
+			b += len;
+			argn++;
+		    } else {
+			fprintf(errfp, "Error: buffer space exhausted\n");
+			return(ENOMEM);
+		    }
+
+		    break;
 		}
-		break;
+
+		/* fall-through, if not "{}" */
 	    default:
-		buf[b++] = line[c++];
-#endif
-	    default:
-;
+		buf[b++] = ptr[c++];
 	    }
 	}
-	buf[t] = '\0';
+	buf[b] = '\0';
+
+	if (quotes)
+	    return(EX_DATAERR);
 
 	/* copy the full arg */
-	if (asprintf((*new)[n], "%s", buf) == -1)
+	if (asprintf(&(*new)[n], "%s", buf) == -1)
 	    return(errno);
     }
 
     /* tack on tail[][], if any exist */
     if (ntail) {
-	for (t = 0; t < ntail; t++) {
-	    if (asprintf((*new)[n], "%s", tail[t]) == -1)
+	for (b = 0; b < ntail; b++) {
+	    if (asprintf(&(*new)[n], "%s", tail[b]) == -1)
 		return(errno);
 	    n++;
 	}
     }
 
     return(0);
-
-#if 0
-    /* temporary buffer */
-    len = strlen(cmd);
-    linemax = linemax > (len + 1) ? linemax : linemax * 2;
-    if ((lcmd = (char *) malloc(linemax)) == NULL) {
-		/* XXX: error msg ??? */
-	fprintf(errfp, "Error: memory allocation failed: %s", strerror(errno));
-	return(ENOMEM);
-    }
-    bzero(lcmd, linemax);
-
-    /* realloc lcmd space */
-#define	RE_MALLOC(a, b, n)	{				\
-	if ((b = (char *)realloc(&a, n + LINE_MAX)) == NULL) {	\
-		free(a);					\
-		return(ENOMEM);					\
-	    }					 		\
-	    a = b;						\
-	    bzero(a + n - 1, LINE_MAX);		 		\
-	    n += LINE_MAX;					\
-	}
-
-    /* if cmd is NULL, just catenate args into a lcmd to be separated below */
-    if (cmd == NULL) {
-	l = c = 0;
-	while (args[c] != NULL) {
-	    len = strlen(args[c]);
-	    while (l + len + 1 > linemax)
-		RE_MALLOC(lcmd, ptr, linemax);
-	    bcopy(args[c], &lcmd[c], len);
-	    l += len;
-	}
-	spaces = nargs;
-    } else {
-	/* skip leading whitespace, look for {}s to replace spaces & NULL
-	 * spaces.  ugly
-	 */
-	quotes = c = l = 0;
-	while (cmd[c] == ' ' || cmd[c] == '\t')
-	    c++;
-
-    while (cmd[c] != '\0') {
-	while (l + 3 > linemax)
-	    RE_MALLOC(lcmd, ptr, linemax);
-	switch (cmd[c]) {
-	case '\\':
-	    if (quotes) {
-		lcmd[l++] = cmd[c++];
-		lcmd[l++] = cmd[c++];
-	    } else {
-		if (cmd[c+1] == 'n') {
-		    lcmd[l++] = '\n';
-		    c += 2;
-		} else if (cmd[c+1] == 't') {
-		    lcmd[l++] = '\t';
-		    c += 2;
-		} else {
-		    lcmd[l++] = cmd[c++];
-		    lcmd[l++] = cmd[c++];
-		}
-	    }
-	    break;
-	case '\'':
-	    /* shell preserves the meaning of all chars in '', incl \ */
-	    c++;
-	    if ((tick = index(cmd + c, '\'')) == NULL) {
-		/* unmatched quotes */
-		free(lcmd);
-		return(EX_DATAERR);
-	    }
-#if 0
-	    /* this would make it possible to do \' in a '-d string */
-	      else if (*(tick - 1) == '\\') {
-		for (;;;)
-		    tick++;
-		    if (*tick == '\0') {
-			/* unmatched quotes */
-			free(lcmd);
-			return(EX_DATAERR);
-		    }
-		    if (*tick == '\'')
-			break;
-		}
-	    }
-#endif
-	    len = tick - cmd;
-	    while (l + len + 1 > linemax)
-		RE_MALLOC(lcmd, ptr, linemax);
-	    bcopy(&cmd[c], &lcmd[l], len);
-	    c += len; l += len;
-	    break;
-	case '"':
-	    /* the shell would recognize $, `, and \ in double-" strings.  by
-	     * the time we get it, these chars should not exist and thus we
-	     * we ignore them.  all we deal with are \" and \n.
-	     */
-	    quotes ^= 1;
-	    c++;
-	    break;
-	case '\t':
-	case ' ':
-	    if (!quotes) {
-		lcmd[l++] = '\0';
-		spaces++;
-		c++;
-	    } else
-		lcmd[l++] = cmd[c++];
-	    break;
-	case '{':
-	    /* the shell would replace $x in quotes, so we do the same w/ {}s */
-	    if (cmd[c + 1] == '}') {
-		if (argn < nargs) {
-		    len = strlen(args[argn]);
-		    while (l + len + 1 > linemax)
-			RE_MALLOC(lcmd, ptr, linemax);
-		    bcopy(cmd + c, lcmd + l, len);
-		    l += len;
-		}
-		c += 2;
-	    } else
-		lcmd[l++] = cmd[c++];
-	    break;
-	default:
-	    lcmd[l++] = cmd[c++];
-	}
-    }
-    }
-
-#endif
 }
 
 /*
