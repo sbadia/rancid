@@ -17,7 +17,10 @@
  *
  */
 
+#include <config.h>
 #include <util.h>
+#include <stdio.h>
+#include <varargs.h>
 
 /*
  * function:	mktmp()
@@ -43,7 +46,7 @@
  * synopsis:	open sendmail vforks and starts sendmail.
  */
 
-#include <stdio.h>
+#if 0
 #include <time.h>
 
 #include <limits.h>
@@ -53,6 +56,7 @@
 #include <regex.h>
 
 #include <termios.h>
+#endif
 
 #if ! HAVE_VASPRINTF
 /*
@@ -61,10 +65,14 @@
  * synopsis:	emulate asprintf() for platforms without
  */
 int
-asprintf(ret, format, va_alist)
+#ifdef __STDC__
+asprintf(char **ret, char *format, ...)
+#else
+asprintf(ret, format, ...)
     char	**ret;
     char	*format;
-    va_dcl
+    /*va_dcl*/
+#endif
 {
     va_list	ap;
     int		len,
@@ -111,11 +119,16 @@ asprintf(ret, format, va_alist)
  * synopsis:	emulate vasprintf() for platforms without
  */
 int
+#ifdef __STDC__
+vasprintf(char **ret, char *format, ...)
+#else
 vasprintf(ret, format, ap)
     char	**ret;
     char	*format;
     va_list	ap;
+#endif
 {
+    va_list	ap;
     int		len,
 		vlen;
 
