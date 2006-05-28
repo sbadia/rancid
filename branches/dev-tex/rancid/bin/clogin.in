@@ -2,7 +2,7 @@
 ##
 ## $Id$
 ##
-## Copyright (C) 1997-2004 by Terrapin Communications, Inc.
+## Copyright (C) 1997-2006 by Terrapin Communications, Inc.
 ## All rights reserved.
 ##
 ## This software may be freely copied, modified and redistributed
@@ -23,10 +23,18 @@
 #
 # clogin - Cisco login
 #
+# Most options are intuitive for logging into a Cisco router.
+# The default is to enable (thus -noenable).  Some folks have
+# setup tacacs to have a user login at priv-lvl = 15 (enabled)
+# so the -autoenable flag was added for this case (don't go through
+# the process of enabling and the prompt will be the "#" prompt.
+# The default username password is the same as the vty password.
+#
 
-@INCLUDE login.top@
+-@INCLUDE login.top@
 
 # Log into the router.
+# returns: 0 on success, 1 on failure, -1 if rsh was used successfully
 proc login { router user userpswd passwd enapasswd cmethod cyphertype } {
     global spawn_id in_proc do_command do_script platform
     global prompt u_prompt p_prompt e_prompt sshcmd
@@ -36,6 +44,7 @@ proc login { router user userpswd passwd enapasswd cmethod cyphertype } {
     # try each of the connection methods in $cmethod until one is successful
     set progs [llength $cmethod]
     foreach prog [lrange $cmethod 0 end] {
+	incr progs -1
 	if [string match "telnet*" $prog] {
 	    regexp {telnet(:([^[:space:]]+))*} $prog command suffix port
 	    if {"$port" == ""} {
@@ -45,7 +54,7 @@ proc login { router user userpswd passwd enapasswd cmethod cyphertype } {
 	    }
 	    if { $retval } {
 		send_user "\nError: telnet failed: $reason\n"
-		exit 1
+		return 1
 	    }
 	} elseif [string match "ssh*" $prog] {
 	    regexp {ssh(:([^[:space:]]+))*} $prog command suffix port
@@ -57,18 +66,86 @@ proc login { router user userpswd passwd enapasswd cmethod cyphertype } {
 	    }
 	    if { $retval } {
 		send_user "\nError: $sshcmd failed: $reason\n"
-		exit 1
+		return 1
 	    }
 	} elseif ![string compare $prog "rsh"] {
-	    if [ catch {spawn rsh -l $user $router} reason ] {
-		send_user "\nError: rsh failed: $reason\n"
-		exit 1
+	    global command
+
+	    if { ! $do_command } {
+		if { [llength $cmethod] == 1 } {
+		    send_user "\nError: rsh is an invalid method for -x and "
+		    send_user "interactive logins\n"
+		}
+		if { $progs == 0 } {
+		    return 1
+		}
+		continue;
 	    }
+
+	    set commands [split $command \;]
+	    set num_commands [llength $commands]
+	    set rshfail 0
+	    for {set i 0} {$i < $num_commands && !$rshfail} { incr i} {
+		log_user 0
+		set retval [ catch {spawn rsh $user@$router [lindex $commands $i] } reason ]
+		if { $retval } {
+		    send_user "\nError: rsh failed: $reason\n"
+		    log_user 1; return 1
+		}
+		send_user "$router# [lindex $commands $i]\n"
+
+		# rcmd does not get a pager and no prompts, so we just have to
+		# look for failures & lines.
+		expect {
+		  "Connection refused"	{ catch {close}; wait;
+					  send_user "\nError: Connection\
+						    Refused ($prog): $router\n"
+					  set rshfail 1
+					}
+		  -re "(Connection closed by|Connection to \[^\n\r]+ closed)" {
+					  catch {close}; wait;
+					  send_user "\nError: Connection\
+						    closed ($prog): $router\n"
+					  set rshfail 1
+					}
+		  "Host is unreachable"	{ catch {close}; wait;
+					  send_user "\nError: Host Unreachable:\
+						    $router\n"
+					  set rshfail 1
+					}
+		  "No address associated with" {
+					  catch {close}; wait;
+					  send_user "\nError: Unknown host\
+						    $router\n"
+					  set rshfail 1
+					}
+		  -re "\b+"		{ exp_continue }
+		  -re "\[\n\r]+"	{ send_user -- "$expect_out(buffer)"
+					  exp_continue
+					}
+		  timeout		{ catch {close}; wait
+					  send_user "\nError: TIMEOUT reached\n"
+					  set rshfail 1
+					}
+		  eof			{ catch {close}; wait }
+		}
+		log_user 1
+	    }
+	    if { $rshfail } {
+		if { !$progs } {
+		    return 1
+		} else {
+		    continue
+		}
+	    }
+	    # fake the end of the session for rancid.
+	    send_user "$router# exit\n"
+	    # return rsh "success"
+	    return -1
 	} else {
-	    puts "\nError: unknown connection method: $prog"
+	    send_user "\nError: unknown connection method: $prog\n"
 	    return 1
 	}
-	incr progs -1
 	sleep 0.3
 
 	# This helps cleanup each expect clause.
@@ -248,7 +325,7 @@ proc run_commands { prompt command } {
 	regsub -all {[)(]} $prompt {\\&} reprompt
 	# match cisco config mode prompts too, such as router(config-if)#,
 	# but catalyst does not change in this fashion.
-	regsub -all {^(.{1,14}).*([#>])$} $reprompt {\1([^#>\r\n]+)?[#>](\\([^)\\r\\n]+\\))?} reprompt
+	regsub -all {^(.{1,11}).*([#>])$} $reprompt {\1([^#>\r\n]+)?[#>](\\([^)\\r\\n]+\\))?} reprompt
 	expect {
 	    -re $reprompt	{}
 	    -re "\[\n\r]+"	{ exp_continue }
@@ -273,6 +350,9 @@ proc run_commands { prompt command } {
 		-re "^\[^\n\r *]*$reprompt"	{ send_user -- "$expect_out(buffer)"
 						}
 		-re "^\[^\n\r]*$reprompt."	{ send_user -- "$expect_out(buffer)"
+						  exp_continue }
+		-re "^--More--\r\n"		{ # specific match c1900 pager
+						  send " "
 						  exp_continue }
 		-re "\[\n\r]+"			{ send_user -- "$expect_out(buffer)"
 						  exp_continue }
@@ -303,6 +383,9 @@ proc run_commands { prompt command } {
 		-re "^\[^\n\r *]*$reprompt"	{ send_user -- "$expect_out(buffer)"
 						}
 		-re "^\[^\n\r]*$reprompt."	{ send_user -- "$expect_out(buffer)"
+						  exp_continue }
+		-re "^--More--\r\n"		{ # specific match c1900 pager
+						  send " "
 						  exp_continue }
 		-re "\[\n\r]+"			{ send_user -- "$expect_out(buffer)"
 						  exp_continue }
@@ -356,12 +439,14 @@ source_password_file $password_file
 set in_proc 0
 foreach router [lrange $argv $i end] {
     set router [string tolower $router]
-    send_user "$router\n"
+    # attempt at platform switching.
+    set platform ""
+    send_user -- "$router\n"
 
-    # Figure out prompt.
-    # Since autoenable is off by default, if we have it defined, it
-    # was done on the command line. If it is not specifically set on the
-    # command line, check the password file.
+    # Figure out the prompt.
+    # autoenable is off by default.  If we have it defined, it was done
+    # on the command line.  If it is not specifically set on the command
+    # line, check the password file.
     if $avautoenable {
 	set autoenable 1
 	set enable 0
@@ -388,11 +473,11 @@ foreach router [lrange $argv $i end] {
     if { $do_passwd || $do_enapasswd } {
       set pswd [find password $router]
       if { [llength $pswd] == 0 } {
-	send_user "\nError: no password for $router in $password_file.\n"
+	send_user -- "\nError: no password for $router in $password_file.\n"
 	continue
       }
       if { $enable && $do_enapasswd && $autoenable == 0 && [llength $pswd] < 2 } {
-	send_user "\nError: no enable password for $router in $password_file.\n"
+	send_user -- "\nError: no enable password for $router in $password_file.\n"
 	continue
       }
       set passwd [join [lindex $pswd 0] ""]
@@ -465,6 +550,7 @@ foreach router [lrange $argv $i end] {
 
     # Login to the router
     if {[login $router $ruser $userpswd $passwd $enapasswd $cmethod $cyphertype]} {
+	# if login failed or rsh was successful, move on to the next device
 	continue
     }
     if { $enable } {
@@ -479,7 +565,7 @@ foreach router [lrange $argv $i end] {
     send "\r"
     expect {
 	-re "\[\r\n]+"		{ exp_continue; }
-	-re "^(.+:)1 $prompt"	{ # stoopid extreme cmd-line numbers and
+	-re "^(.+\[:.])1 ($prompt)" { # stoopid extreme cmd-line numbers and
 				  # prompt based on state of config changes,
 				  # which may have an * at the beginning.
 				  set junk $expect_out(1,string)

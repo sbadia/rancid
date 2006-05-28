@@ -2,7 +2,7 @@
 ##
 ## $Id$
 ##
-## Copyright (C) 1997-2004 by Terrapin Communications, Inc.
+## Copyright (C) 1997-2006 by Terrapin Communications, Inc.
 ## All rights reserved.
 ##
 ## This software may be freely copied, modified and redistributed
@@ -81,13 +81,30 @@ DIR=$BASEDIR/$GROUP
 TMP=${TMPDIR:=/tmp}/rancid.$GROUP.$$
 trap 'rm -fr $TMP;' 1 2 15
 
-# the receipient(s) of diffs
+# RCS system
+RCSSYS=${RCSSYS:=cvs};
+if [ $RCSSYS != "cvs" -a $RCSSYS != "svn" ] ; then
+    echo "$RCSSYS is not a valid value for RCSSYS."
+    exit 1
+fi
+
+# the receipient(s) of diffs & mail options
 mailrcpt=${mailrcpt:-"@MAILPLUS@${GROUP}${MAILDOMAIN}"}; export mailrcpt
-adminmailrcpt=${mailrcpt:-"@ADMINMAILPLUS@${GROUP}${MAILDOMAIN}"};
+adminmailrcpt=${adminmailrcpt:-"@ADMINMAILPLUS@${GROUP}${MAILDOMAIN}"};
 export adminmailrcpt
+set | grep MAILHEADERS= > /dev/null 2>&1
+if [ $? -ne 0 ] ; then
+    MAILHEADERS="Precedence: bulk\n"; export MAILHEADERS
+fi
 
 # Number of things par should run in parallel.
 PAR_COUNT=${PAR_COUNT:-5}
+# Number of times failed collections should be retried.  Minimum 1.
+MAX_ROUNDS=${MAX_ROUNDS:-4}
+if [ $MAX_ROUNDS -lt 1 ] ; then
+    echo "Error: MAX_ROUNDS must be at least 1."
+    MAX_ROUNDS=1
+fi
 
 # Bail if we do not have the necessary info to run
 if [ ! -d $DIR ]
@@ -97,20 +114,36 @@ then
     (
 	echo "To: $adminmailrcpt"
 	echo "Subject: no $GROUP directory"
-	echo "Precedence: bulk"
+	echo "$MAILHEADERS" | awk '{L = "";LN = $0;while (LN ~ /\\n/) { I = index(LN,"\\n");L = L substr(LN,0,I-1) "\n";LN = substr(LN,I+2,length(LN)-I-1);}print L LN;}'
 	echo ""
 	echo "$DIR does not exist."
 	echo "Run bin/rancid-cvs $GROUP to make all of the needed directories."
     ) | sendmail -t
     exit 1
 fi
+cd $DIR
+
+# create a .cvsignore
+if [ ! -f .cvsignore ]
+then
+    rm -f .cvsignore
+    cat >.cvsignore <<EOF
+.cvsignore
+routers.all
+routers.down
+routers.up
+EOF
+    if [ $RCSSYS = svn ]
+    then
+	svn propset svn:ignore -F .cvsignore .
+    fi
+fi
 
 # do cvs update of router.db in case anyone has fiddled.
-cd $DIR
-cvs update router.db > $TMP 2>&1
+$RCSSYS update router.db > $TMP 2>&1
 grep "^C" $TMP > /dev/null
 if [ $? -eq 0 ] ; then
-    echo "There were CVS conflicts during update."
+    echo "There were $RCSSYS conflicts during update."
     echo ""
     cat $TMP
     rm -f $TMP
@@ -120,10 +153,11 @@ rm -f $TMP
 
 if [ ! -f $DIR/router.db ]
 then
+    echo "$DIR/router.db does not exist."
     (
 	echo "To: $adminmailrcpt"
 	echo "Subject: no $GROUP/router.db file"
-	echo "Precedence: bulk"
+	echo "$MAILHEADERS" | awk '{L = "";LN = $0;while (LN ~ /\\n/) { I = index(LN,"\\n");L = L substr(LN,0,I-1) "\n";LN = substr(LN,I+2,length(LN)-I-1);}print L LN;}'
 	echo ""
 	echo "$DIR/router.db does not exist."
     ) | sendmail -t
@@ -134,7 +168,7 @@ fi
 cd $DIR
 trap 'rm -fr routers.db routers.all.new routers.down.new routers.up.new \
 	routers.mail routers.added routers.deleted $TMP;' 1 2 15
-sed -e '/^#/d' -e 's/^ *//' -e 's/ *$//' -e 's/ *: */:/g' router.db | 
+sed -e '/^#/d' -e 's/^ *//' -e 's/ *$//' -e 's/ *: */:/g' router.db |
 	sort -u > routers.db
 cut -d: -f1,2 routers.db > routers.all.new
 if [ ! -f routers.all ] ; then touch routers.all; fi
@@ -175,10 +209,10 @@ then
 		WCDOWN=`comm -13 routers.down routers.down.new | wc -l | \
 			sed -e 's/^ *\([^ ]*\)/\1/'`
 		if [ $WCDOWN -eq 1 ] ; then
-	            echo Routers changed to down:
-	            comm -13 routers.down routers.down.new | \
+		    echo Routers changed to down:
+		    comm -13 routers.down routers.down.new | \
 			sed -e 's/^/        /'
-	            echo
+		    echo
 		fi
 	    fi
 	fi
@@ -193,14 +227,14 @@ then
 
 	    if [ $WCADDED -gt 0 ]
 	    then
-	        echo Added routers:
-	        cat routers.added
+		echo Added routers:
+		cat routers.added
 		echo
 	    fi
 	    if [ $WCDELETED -gt 0 ]
 	    then
-	        echo Deleted routers:
-	        cat routers.deleted
+		echo Deleted routers:
+		cat routers.deleted
 		echo
 	    fi
 
@@ -212,7 +246,7 @@ then
 	(
 	  echo "To: $adminmailrcpt"
 	  echo "Subject: changes in $GROUP routers"
-	  echo "Precedence: bulk"
+	  echo "$MAILHEADERS" | awk '{L = "";LN = $0;while (LN ~ /\\n/) { I = index(LN,"\\n");L = L substr(LN,0,I-1) "\n";LN = substr(LN,I+2,length(LN)-I-1);}print L LN;}'
 	  echo ""
 	  cat routers.mail
 	) | sendmail -t
@@ -231,8 +265,12 @@ then
 	router=$1
 
 	touch $router
-	cvs add -ko $router
-	cvs commit -m 'new router' $router
+	if [ $RCSSYS = cvs ] ; then
+	    cvs add -ko $router
+	else
+	    svn add $router
+	fi
+	$RCSSYS commit -m 'new router' $router
 	echo "Added $router"
     done
     echo
@@ -255,23 +293,31 @@ rm -f routers.db
 trap 'rm -fr $TMP;' 1 2 15
 
 cd $DIR/configs
-# check for 'up' routers missing in cvs.  no idea how this happens to some folks
+# check for 'up' routers missing in RCS.  no idea how this happens to some folks
 for router in `cut -d: -f1 ../routers.up` ; do
-    cvs status $router | grep -i 'status: unknown' > /dev/null 2>&1
+    if [ $RCSSYS = cvs ] ; then
+	cvs status $router | grep -i 'status: unknown' > /dev/null 2>&1
+    else
+	svn status $router | grep '^?' > /dev/null 2>&1
+    fi
     if [ $? -eq 0 ]; then
 	touch $router
-	cvs add -ko $router
-	echo "CVS added missing router $router"
+	if [ $RCSSYS = cvs ] ; then
+	    cvs add -ko $router
+	else
+	    svn add $router
+	fi
+	echo "$RCSSYS added missing router $router"
     fi
 done
 echo
-# cvs delete configs for routers not listed in routers.up.
-for router in `find . \( -name \*.new -prune -o -name CVS -prune \) -o -type f -print | sed -e 's/^.\///'` ; do
+# delete configs from RCS for routers not listed in routers.up.
+for router in `find . \( -name \*.new -prune -o -name CVS -prune -o -name .svn -prune \) -o -type f -print | sed -e 's/^.\///'` ; do
     grep -i "^$router:" ../router.db > /dev/null 2>&1
     if [ $? -eq 1 ]; then
 	rm -f $router
-	cvs delete $router
-	cvs commit -m 'deleted router' $router
+	$RCSSYS delete $router
+	$RCSSYS commit -m 'deleted router' $router
 	echo "Deleted $router"
     fi
 done
@@ -281,7 +327,7 @@ cd $DIR
 if [ ! -s routers.up ]
 then
     # commit router.db
-    cvs commit -m updates router.db > /dev/null
+    $RCSSYS commit -m updates router.db
     exit;
 fi
 
@@ -309,7 +355,7 @@ par -q -n $PAR_COUNT -c "rancid-fe \{}" $devlistfile
 # This section will generate a list of missed routers
 # and try to grab them again.  It will run through
 # $pass times.
-pass=4
+pass=$MAX_ROUNDS
 round=1
 if [ -f $DIR/routers.up.missed ]; then
     rm -f $DIR/routers.up.missed
@@ -347,10 +393,10 @@ echo
 # Make sure that no empty configs are accepted.  Those that are non-empty
 # are renamed from device_name.new -> device_name.
 for router in `cat $devlistfile`
-do 
+do
     OFS=$IFS
     IFS=':'
-    set $router 
+    set $router
     IFS=$OFS
     router=$1;
 
@@ -369,8 +415,12 @@ done
 # Diff the directory and then checkin.
 trap 'rm -fr $TMP $TMP.diff $DIR/routers.single;' 1 2 15
 cd $DIR
-cvs -f @DIFF_CMD@ | sed -e '/^RCS file: /d' -e '/^--- /d' \
+if [ $RCSSYS = "cvs" ] ; then
+    cvs -f @DIFF_CMD@ -ko | sed -e '/^RCS file: /d' -e '/^--- /d' \
 	-e '/^+++ /d' -e 's/^\([-+ ]\)/\1 /' >$TMP.diff
+else
+    svn diff | sed -e '/^+++ /d' -e 's/^\([-+ ]\)/\1 /' >$TMP.diff
+fi
 
 if [ $alt_mailrcpt -eq 1 ] ; then
     subject="router config diffs - courtesy of $mailrcpt"
@@ -378,22 +428,23 @@ else
     subject="router config diffs"
 fi
 if [ "X$device" != "X" ] ; then
-    cvs commit -m "updates - courtesy of $mailrcpt"
+    $RCSSYS commit -m "updates - courtesy of $mailrcpt"
     subject="$GROUP/$device $subject"
 else
-    cvs commit -m updates
+    $RCSSYS commit -m updates
     subject="$GROUP $subject"
 fi
 
 # Mail out the diffs (if there are any).
-if [ -s $TMP.diff ]; then
-    sendmail -t <<EMAIL
-To: $mailrcpt
-Subject: $subject
-Precedence: bulk
-
-`cat $TMP.diff`
-EMAIL
+if [ -s $TMP.diff ]
+then
+	(
+	  echo "To: $mailrcpt"
+	  echo "Subject: $subject"
+	  echo "$MAILHEADERS" | awk '{L = "";LN = $0;while (LN ~ /\\n/) { I = index(LN,"\\n");L = L substr(LN,0,I-1) "\n";LN = substr(LN,I+2,length(LN)-I-1);}print L LN;}'
+	  echo ""
+	  cat $TMP.diff
+	) | sendmail -t
 fi
 
 # If any machines have not been reached within the last $OLDTIME
@@ -410,7 +461,7 @@ then
 	(
 	  echo "To: $adminmailrcpt"
 	  echo "Subject: config fetcher problems - $GROUP"
-	  echo "Precedence: bulk"
+	  echo "$MAILHEADERS" | awk '{L = "";LN = $0;while (LN ~ /\\n/) { I = index(LN,"\\n");L = L substr(LN,0,I-1) "\n";LN = substr(LN,I+2,length(LN)-I-1);}print L LN;}'
 	  echo ""
 	  echo "The following routers have not been successfully contacted for"
 	  echo "more than $OLDTIME hours."
@@ -420,5 +471,5 @@ then
 fi
 
 # Cleanup
-rm -f $TMP.diff $DIR/routers.single
+rm -f $TMP.diff $DIR/routers.single $DIR/routers.failed
 trap '' 1 2 15
