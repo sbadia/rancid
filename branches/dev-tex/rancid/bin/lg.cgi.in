@@ -2,7 +2,7 @@
 ##
 ## $Id$
 ##
-## Copyright (C) 1997-2004 by Terrapin Communications, Inc.
+## Copyright (C) 1997-2006 by Terrapin Communications, Inc.
 ## All rights reserved.
 ##
 ## This software may be freely copied, modified and redistributed
@@ -680,7 +680,7 @@ if ($type eq "prefix" || $type eq "mbgp" || $type eq "route" ) {
 	if ($mfg =~ /cisco/i) {
 	    $arg = " | include " . join(' ', @arg);
 	} elsif ($mfg =~ /juniper/i) {
-	    $arg = " | match \"" . join(' ', @arg) . "\"";
+	    $arg = " | match \\\"" . join(' ', @arg) . "\\\"";
 	} else {
 	    undef($arg);
 	}
@@ -738,7 +738,7 @@ if ($type eq "prefix" || $type eq "mbgp" || $type eq "route" ) {
 	} else {
 	    $arg =~ s/[\$^]/ /g;
 	}
-	$arg = "\"$arg\"";
+	$arg = "\\\"$arg\\\"";
     }
     # escape any ()s
     $arg =~ s/([\(\)])/\\$1/g;

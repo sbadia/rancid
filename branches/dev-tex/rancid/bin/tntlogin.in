@@ -2,7 +2,7 @@
 ##
 ## $Id$
 ##
-## Copyright (C) 1997-2004 by Terrapin Communications, Inc.
+## Copyright (C) 1997-2006 by Terrapin Communications, Inc.
 ## All rights reserved.
 ##
 ## This software may be freely copied, modified and redistributed
@@ -26,8 +26,8 @@
 # Ignores enable settinge entirely.
 @INCLUDE login.top@
 
-
 # Log into the router.
+# returns: 0 on success, 1 on failure
 proc login { router user userpswd passwd prompt cmethod cyphertype } {
     global spawn_id in_proc do_command do_script
     global u_prompt p_prompt sshcmd
@@ -37,6 +37,7 @@ proc login { router user userpswd passwd prompt cmethod cyphertype } {
     # try each of the connection methods in $cmethod until one is successful
     set progs [llength $cmethod]
     foreach prog [lrange $cmethod 0 end] {
+	incr progs -1
 	if [string match "telnet*" $prog] {
 	    regexp {telnet(:([^[:space:]]+))*} $prog command suffix port
 	    if {"$port" == ""} {
@@ -46,24 +47,24 @@ proc login { router user userpswd passwd prompt cmethod cyphertype } {
 	    }
 	    if { $retval } {
 		send_user "\nError: telnet failed: $reason\n"
-		exit 1
+		return 1
 	    }
-        } elseif ![string compare $prog "ssh"] {
+	} elseif ![string compare $prog "ssh"] {
             if [ catch {spawn $sshcmd -c $cyphertype -x -l $user $router} reason ] {
                 send_user "\nError: $sshcmd failed: $reason\n"
-                exit 1
+                return 1
             }
-        } elseif ![string compare $prog "rsh"] {
-            if [ catch {spawn rsh -l $user $router} reason ] {
-                send_user "\nError: rsh failed: $reason\n"
-                exit 1
-            }
-        } else {
-            puts "\nError: unknown connection method: $prog"
+	} elseif ![string compare $prog "rsh"] {
+	    send_error "\nError: unsupported method: rsh\n"
+	    if { $progs == 0 } {
+		return 1
+	    }
+	    continue;
+	} else {
+            send_user "\nError: unknown connection method: $prog\n"
             return 1
-        }
-        incr progs -1
-        sleep 0.3
+	}
+	sleep 0.3
 
     # This helps cleanup each expect clause.
     expect_after {
@@ -155,7 +156,7 @@ proc run_commands { prompt command } {
     send "lines 0\r"
     expect -re $prompt {}
     regsub -all "\[)(]" $prompt {\\&} reprompt
-	
+
     # Is this a multi-command?
     if [ string match "*\;*" "$command" ] {
 	set commands [split $command \;]
@@ -177,7 +178,7 @@ proc run_commands { prompt command } {
 		-re "\[\n\r]+"			{ exp_continue }
 	}
     }
-    
+
     send "quit\r"
 #    expect {
 #	-re "^WARNING: the current user has insufficient rights to view password fields.  A configuration saved under this circumstance should not be used to restore profiles containing passwords.  Save anyway? [y/n]"
@@ -264,9 +265,9 @@ foreach router [lrange $argv $i end] {
     set cmethod [find method $router]
     if { "$cmethod" == "" } { set cmethod {{telnet} {ssh}} }
 
-    # Figure out the SSH executable name  
-    set sshcmd [find sshcmd $router]  
-    if { "$sshcmd" == "" } { set sshcmd {ssh} }  
+    # Figure out the SSH executable name
+    set sshcmd [find sshcmd $router]
+    if { "$sshcmd" == "" } { set sshcmd {ssh} }
 
     # Login to the router
     if {[login $router $ruser $userpswd $passwd $prompt $cmethod $cyphertype]} {

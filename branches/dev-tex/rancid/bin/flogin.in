@@ -2,7 +2,7 @@
 ##
 ## $Id$
 ##
-## Copyright (C) 1997-2004 by Terrapin Communications, Inc.
+## Copyright (C) 1997-2006 by Terrapin Communications, Inc.
 ## All rights reserved.
 ##
 ## This software may be freely copied, modified and redistributed
@@ -27,11 +27,18 @@
 # this should be the clogin, but foundry can't seem to dislodge
 # their heads and make the UI consistent.  i think the UI
 # development has been outsourced to Fisher Price.
+# The default is to enable (thus -noenable).  Some folks have
+# setup tacacs to have a user login at priv-lvl = 15 (enabled)
+# so the -autoenable flag was added for this case (don't go through
+# the process of enabling and the prompt will be the "#" prompt.
+# The default username password is the same as the vty password.
+#
 
 # No adjustments to default cli handling necessary.
 @INCLUDE login.top@
 
 # Log into the router.
+# returns: 0 on success, 1 on failure
 proc login { router user userpswd passwd enapasswd cmethod cyphertype } {
     global spawn_id in_proc do_command do_script platform
     global prompt u_prompt p_prompt e_prompt sshcmd
@@ -41,6 +48,7 @@ proc login { router user userpswd passwd enapasswd cmethod cyphertype } {
     # try each of the connection methods in $cmethod until one is successful
     set progs [llength $cmethod]
     foreach prog [lrange $cmethod 0 end] {
+	incr progs -1
 	if [string match "telnet*" $prog] {
 	    regexp {telnet(:([^[:space:]]+))*} $prog command suffix port
 	    if {"$port" == ""} {
@@ -50,23 +58,23 @@ proc login { router user userpswd passwd enapasswd cmethod cyphertype } {
 	    }
 	    if { $retval } {
 		send_user "\nError: telnet failed: $reason\n"
-		exit 1
+		return 1
 	    }
 	} elseif ![string compare $prog "ssh"] {
 	    if [ catch {spawn $sshcmd -c $cyphertype -x -l $user $router} reason ] {
 		send_user "\nError: $sshcmd failed: $reason\n"
-		exit 1
+		return 1
 	    }
 	} elseif ![string compare $prog "rsh"] {
-	    if [ catch {spawn rsh -l $user $router} reason ] {
-		send_user "\nError: rsh failed: $reason\n"
-		exit 1
+	    send_error "\nError: unsupported method: rsh\n"
+	    if { $progs == 0 } {
+		return 1
 	    }
+	    continue;
 	} else {
-	    puts "\nError: unknown connection method: $prog"
+	    send_user "\nError: unknown connection method: $prog\n"
 	    return 1
 	}
-	incr progs -1
 	sleep 0.3
 
 	# This helps cleanup each expect clause.
@@ -103,15 +111,15 @@ proc login { router user userpswd passwd enapasswd cmethod cyphertype } {
 	    if !$progs {
 		send_user "\nError: Connection Refused ($prog): $router\n"
 		return 1
-	    } 
+	    }
 	}
 	-re "(Connection closed by|Connection to \[^\n\r]+ closed)" {
 	    catch {close}; wait
 	    if !$progs {
 		send_user "\nError: Connection closed ($prog): $router\n"
 		return 1
-	    }   
-	}   
+	    }
+	}
 	-re "Telnet server disabled" {
 	    catch {close}; wait
 	    if !$progs {
@@ -295,7 +303,7 @@ foreach router [lrange $argv $i end] {
       if { [llength $pswd] == 0 } {
         send_user "\nError: no password for $router in $password_file.\n"
         continue
-      } 
+      }
       if { $enable && $do_enapasswd && $autoenable == 0 && [llength $pswd] < 2 } {
 	send_user "\nError: no enable password for $router in $password_file.\n"
         continue
@@ -305,13 +313,13 @@ foreach router [lrange $argv $i end] {
     }
 
     # Figure out username
-    if {[info exists username]} {  
+    if {[info exists username]} {
       # command line username
       set ruser $username
     } else {
       set ruser [join [find user $router] ""]
       if { "$ruser" == "" } { set ruser $default_user }
-    } 
+    }
 
     # Figure out username's password (if different from the vty password)
     if {[info exists userpasswd]} {
@@ -319,17 +327,17 @@ foreach router [lrange $argv $i end] {
       set userpswd $userpasswd
     } else {
       set userpswd [join [find userpassword $router] ""]
-      if { "$userpswd" == "" } { set userpswd $passwd } 
-    } 
-    
+      if { "$userpswd" == "" } { set userpswd $passwd }
+    }
+
     # Figure out enable username
-    if {[info exists enausername]} {  
+    if {[info exists enausername]} {
       # command line enausername
       set enauser $enausername
     } else {
       set enauser [join [find enauser $router] ""]
-      if { "$enauser" == "" } { set enauser $ruser } 
-    } 
+      if { "$enauser" == "" } { set enauser $ruser }
+    }
 
     # Figure out prompts
     set u_prompt [find userprompt $router]
@@ -364,15 +372,15 @@ foreach router [lrange $argv $i end] {
     set cmethod [find method $router]
     if { "$cmethod" == "" } { set cmethod {{telnet} {ssh}} }
 
-    # Figure out the SSH executable name  
-    set sshcmd [find sshcmd $router]  
-    if { "$sshcmd" == "" } { set sshcmd {ssh} }  
+    # Figure out the SSH executable name
+    set sshcmd [find sshcmd $router]
+    if { "$sshcmd" == "" } { set sshcmd {ssh} }
 
     # Login to the router
     if {[login $router $ruser $userpswd $passwd $enapasswd $cmethod $cyphertype]} {
 	continue
     }
-    if { $enable } { 
+    if { $enable } {
 	if {[do_enable $enauser $enapasswd]} {
 	    if { $do_command || $do_script } {
 		close; wait
@@ -392,7 +400,7 @@ foreach router [lrange $argv $i end] {
 	source $sfile
 	close
     } else {
-	label $router 
+	label $router
 	log_user 1
 	interact
     }

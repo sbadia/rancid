@@ -2,7 +2,7 @@
 ##
 ## $Id$
 ##
-## Copyright (C) 1997-2004 by Terrapin Communications, Inc.
+## Copyright (C) 1997-2006 by Terrapin Communications, Inc.
 ## All rights reserved.
 ##
 ## This software may be freely copied, modified and redistributed
@@ -24,36 +24,48 @@
 # Most options are intuitive for logging into an ADC EZT3 mux.
 #
 
-# elogin doesn't do anything with the enable params. It ignores them,
+# elogin doesn't do anything with the enable params.  It ignores them.
 @INCLUDE login.top@
 
-
 # Log into the router.
+# returns: 0 on success, 1 on failure
 proc login { router user userpswd passwd prompt cmethod cyphertype } {
     global spawn_id in_proc do_command do_script
     global u_prompt p_prompt
     set in_proc 1
-    set uprompt_seen 0 
+    set uprompt_seen 0
 
     # try each of the connection methods in $cmethod until one is successful
     set progs [llength $cmethod]
     foreach prog [lrange $cmethod 0 end] {
+	incr progs -1
 	if [string match "telnet*" $prog] {
 	    regexp {telnet(:([^[:space:]]+))*} $prog command suffix port
 	    if {"$port" == ""} {
-		set retval [ catch {spawn telnet $router} reason ]  
-	    } else { 
+		set retval [ catch {spawn telnet $router} reason ]
+	    } else {
 		set retval [ catch {spawn telnet $router $port} reason ]
 	    }
 	    if { $retval } {
 		send_user "\nError: telnet failed: $reason\n"
-		exit 1 
+		return 1
 	    }
+	} elseif ![string compare $prog "ssh"] {
+	    send_error "\nError: unsupported method: ssh\n"
+	    if { $progs == 0 } {
+		return 1
+	    }
+	    continue
+	} elseif ![string compare $prog "rsh"] {
+	    send_error "\nError: unsupported method: rsh\n"
+	    if { $progs == 0 } {
+		return 1
+	    }
+	    continue
 	} else {
-	    puts "\nError: unknown connection method: $prog"
+	    send_user "\nError: unknown connection method: $prog\n"
 	    return 1
 	}
-	incr progs -1
 	sleep 0.3
 
     # This helps cleanup each expect clause.
