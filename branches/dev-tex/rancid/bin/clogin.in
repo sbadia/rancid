@@ -31,7 +31,7 @@
 # The default username password is the same as the vty password.
 #
 
--@INCLUDE login.top@
+@INCLUDE login.top@
 
 # Log into the router.
 # returns: 0 on success, 1 on failure, -1 if rsh was used successfully
