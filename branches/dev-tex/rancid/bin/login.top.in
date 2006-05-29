@@ -70,6 +70,8 @@ set do_passwd 1
 set do_enapasswd 1
 # attempt at platform switching.
 set platform ""
+#
+set send_human {.4 .4 .7 .3 5}
 
 # Find the user in the ENV, or use the unix userid.
 if {[ info exists env(CISCO_USER) ]} {
