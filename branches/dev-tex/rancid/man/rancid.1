@@ -1,15 +1,12 @@
 .\"
 .hys 50
-.TH "rancid" "1" "6 Jan 2004"
+.TH "rancid" "1" "27 February 2008"
 .SH NAME
 rancid \- Cisco configuration filter
 .SH SYNOPSIS
 .B rancid
-[\fB\-dl\fP]
-([\c
-.BI \-f\ \c
-filename]\ \c
-| hostname)
+[\fB\-dlV\fP]
+(\fB\-f\fP filename | hostname)
 .SH DESCRIPTION
 .B rancid
 is a
@@ -29,6 +26,9 @@ that are supported by
 Briefly, these are:
 .sp
 .TP 15
+.B agmrancid
+Cisco Anomaly Guard Module (AGM)
+.TP 15
 .B arancid
 Alteon WebOS switches
 .TP
@@ -46,6 +46,9 @@ ADC-kentrox EZ-T3 mux
 .TP
 .B f10rancid
 Force10
+.TP
+.B f5rancid
+F5 BigIPs
 .TP
 .B fnrancid
 Fortinet Firewalls
@@ -68,6 +71,12 @@ Juniper Networks
 .B mrancid
 MRTd
 .TP
+.B nrancid
+Netscreen firewalls
+.TP
+.B nsrancid
+Netscaler
+.TP
 .B prancid
 Procket Networks
 .TP
@@ -77,14 +86,14 @@ Riverstone
 .B rrancid
 Redback
 .TP
+.B srancid
+SMC switch (some Dell OEMs)
+.TP
+.B trancid
+Netopia sDSL/T1 routers
+.TP
 .B tntrancid
 Lucent TNT
-.TP
-.B nrancid
-Netscreen firewalls
-.TP
-.B nsrancid
-Netscaler
 .TP
 .B xrancid
 Extreme switches
@@ -93,6 +102,9 @@ Extreme switches
 Zebra routing software
 .PP
 The command-line options are as follows:
+.TP
+.B \-V
+Prints package name and version strings.
 .TP
 .B \-d
 Display debugging information.
