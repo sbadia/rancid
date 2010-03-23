@@ -1,4 +1,26 @@
+2.3.3x
+	add compass support
+
 2.3.3
+	rancid: check for device busy when opening flash fails, which seems to
+	occur on 6500s when some other command is run.
+
+	*login: support :port method syntax for ssh and adjust to allow spaces
+	in sshcmd
+
+	jrancid: fix return values of formatting functions
+
+	clogin: set terminal width so that o/p is consistent
+
+	rancid: filter some crud resulting from the change in handling non-empty
+	comment lines
+
+	rancid: fail if the configuration buffer fills
+
+	rancid: filter dhcp_[^[:space:].].txt from flash directories, so it
+	does not create constant changes resulting from the ip dhcp database
+	saves.
+
 	rancid: filter ldap host password on PIX
 
 	rancid: when compressing consecutive comment lines, only consider

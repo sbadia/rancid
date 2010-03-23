@@ -733,12 +733,17 @@ sub DirSlotN {
 	    ProcessHistory("FLASH","","","!Flash: $dev: $_") && next;
 	return(-1) if (/\%Error calling/);
 	return(-1) if (/(: device being squeezed|ATA_Status time out)/i); # busy
+	return(-1) if (/(\%Error opening \S+:\S+ \(Device or resource busy\)/i);
 	return(-1) if (/command authorization failed/i);
 	return(1) if (/(Open device \S+ failed|Error opening \S+:)/);
 	# filter frequently changing files from IOX bootflash
 	if ($dev =~ /bootflash/) {
 	    next if (/temp_cont\s*$/);
 	    next if (/uptime_cont\s*$/);
+	}
+	# Filter dhcp database
+	if (/dhcp_[^. ]*\.txt/) {
+	    next;
 	}
 	# Filter debugging file dlbg.txt & dlbg.txt-1 only on ASR9k w/ XR
 	if (($ios eq "XR" && $proc =~ /ASR9K/) && /dlbg\.txt/) {
@@ -1541,6 +1546,7 @@ sub WriteTerm {
 	    my($len) = length($1);
 	    s/^$1\s{$len}//;
 	}
+	/^! no configuration change since last restart/i && next;
 	# skip emtpy lines at the beginning
 	if (!$linecnt && /^\s*$/) {
 	    next;
@@ -1549,7 +1555,8 @@ sub WriteTerm {
 	    ProcessHistory("","","", "!\nconfig-register $config_register\n");
 	}
 
-	/Non-Volatile memory is in use/  && return(-1); # NvRAM is locked
+	/Non-Volatile memory is in use/ && return(-1); # NvRAM is locked
+	/% Configuration buffer full, / && return(-1); # buffer is in use
 	$linecnt++;
 	$lineauto = 0 if (/^[^ ]/);
 	# skip the crap
