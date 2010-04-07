@@ -1,5 +1,13 @@
-2.3.3x
+2.3.4x
 	add compass support
+
+2.3.4
+	rancid: parse admin show diag for XR better with a separate function
+
+	hlogin: hpuifilter got omitted from the ssh spawn; replace it.
+
+	nxrancid: match unknown command errors appropriately & GC some junk
+	carried-over from IOS-rancid.
 
 2.3.3
 	rancid: check for device busy when opening flash fails, which seems to
