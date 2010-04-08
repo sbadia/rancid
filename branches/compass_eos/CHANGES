@@ -2,6 +2,10 @@
 	add compass support
 
 2.3.4
+	rancid: split IOS-XR into its own device type: cisco-xr
+
+	clogin: set term width for catos like for ios.
+
 	rancid: parse admin show diag for XR better with a separate function
 
 	hlogin: hpuifilter got omitted from the ssh spawn; replace it.
