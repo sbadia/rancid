@@ -11,7 +11,8 @@ brancid
 cat5rancid
 clogin
 control_rancid
-complogin.in
+complogin
+comprancid
 comprancid.in
 cssrancid
 elogin
@@ -54,4 +55,5 @@ tntlogin
 tntrancid
 trancid
 xrancid
+xrrancid
 zrancid
