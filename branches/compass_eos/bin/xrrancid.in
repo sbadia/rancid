@@ -3,7 +3,7 @@
 ## $Id$
 ##
 ## @PACKAGE@ @VERSION@
-## Copyright (c) 1997-2009 by Terrapin Communications, Inc.
+## Copyright (c) 1997-2010 by Terrapin Communications, Inc.
 ## All rights reserved.
 ##
 ## This code is derived from software contributed to and maintained by
@@ -55,7 +55,6 @@ $debug = $opt_d;
 $file = $opt_f;
 $host = $ARGV[0];
 $proc = "";
-$ios = "IOS";
 $clean_run = 0;
 $found_end = 0;
 $found_version = 0;
@@ -188,19 +187,6 @@ sub ShowVersion {
 	    $slaveslot = ", slot $1";
 	    next;
 	}
-	if (/cisco ios xr /i) { $ios = "XR"; }
-	if (/cisco ios .* IOS-XE/i) { $ios = "XE"; }
-	if (/^Application and Content Networking Software/) { $type = "CE"; }
-	# treat the ACE like the Content Engines for matching endofconfig
-	if (/^Cisco Application Control Software/) { $type = "CE"; }
-	if (/^Cisco Storage Area Networking Operating System/) { $type = "SAN";}
-	if (/^Cisco Nexus Operating System/) { $type = "NXOS";}
-	/^Application and Content Networking Software Release /i &&
-	    ProcessHistory("COMMENTS","keysort","F1", "!Image: $_") && next;
-	# PIX 6 fail-over license, as in "This PIX has an Unrestricted (UR)
-	# license."  PIX 7 as "his platform has ..."
-	/^This (PIX|platform) has an?\s+(.*)$/ &&
-	    ProcessHistory("COMMENTS","keysort","D1", "!$_") && next;
 	/^(Cisco )?IOS .* Software,? \(([A-Za-z0-9_-]*)\), .*Version\s+(.*)$/ &&
 	    ProcessHistory("COMMENTS","keysort","F1",
 		"!Image:$slave Software: $2, $3\n") && next;
@@ -426,7 +412,7 @@ sub ShowVersion {
     return(0);
 }
 
-# This routine parses "admin show diag" for IOS-XR.
+# This routine parses "admin show diag".
 # This will create arrays for hw info.
 sub AdminShowDiag {
     print STDERR "    In ShowDiag: $_" if ($debug);
@@ -578,6 +564,47 @@ sub ShowBoot {
     return(0);
 }
 
+# This routine parses "show gsr chassis-info" for the gsr
+# This will create arrays for hw info.
+sub ShowGSR {
+    # Skip if this is not a 1200n.
+    print STDERR "    In ShowGSR: $_" if ($debug);
+
+    while (<INPUT>) {
+	tr/\015//d;
+	last if (/^$prompt/);
+	next if (/^(\s*|\s*$cmd\s*)$/);
+	return(1) if (/(Invalid (input|command) detected|Type help or )/i);
+	return(-1) if (/command authorization failed/i);
+	# return(1) if ($type !~ /^12[40]/);
+	# the pager can not be disabled per-session on the PIX
+	if (/^(<-+ More -+>)/) {
+	    my($len) = length($1);
+	    s/^$1\s{$len}//;
+	}
+	/^$/ && next;
+
+	/^\s+Chassis: type (\S+) Fab Ver: (\S+)/ &&
+	    ProcessHistory("COMMENTS","keysort","D1",
+				"!GSR Chassis type: $1 Fab Ver: $2\n") &&
+	    next;
+	/^\s+Chassis S\/N: (.*)$/ &&
+	    ProcessHistory("COMMENTS","keysort","D2",
+				"!GSR Chassis S/N: $1\n") &&
+	    next;
+	/^\s+PCA: (\S+)\s*rev: (\S+)\s*dev: \S+\s*HW ver: (\S+)$/ &&
+	    ProcessHistory("COMMENTS","keysort","D3",
+				"!GSR Backplane PCA: $1, rev $2, ver $3\n") &&
+	    next;
+	/^\s+Backplane S\/N: (\S+)$/ &&
+	    ProcessHistory("COMMENTS","keysort","D4",
+				"!GSR Backplane S/N: $1\n") &&
+	    next;
+    }
+    ProcessHistory("COMMENTS","","","!\n");
+    return(0);
+}
+
 # This routine parses "dir /all ((disk|slot)N|bootflash|nvram):"
 sub DirSlotN {
     print STDERR "    In DirSlotN: $_" if ($debug);
@@ -612,15 +639,12 @@ sub DirSlotN {
 	    next;
 	}
 	# Filter debugging file dlbg.txt & dlbg.txt-1 only on ASR9k w/ XR
-	if (($ios eq "XR" && $proc =~ /ASR9K/) && /dlbg\.txt/) {
+	if ($proc =~ /ASR9K/ && /dlbg\.txt/) {
 	    next;
 	}
-	if (($ios eq "XR" || $ios eq "XE") && /.*\((\d+) bytes free\)/) {
+	if (/.*\((\d+) bytes free\)/) {
 	    my($tmp) = int($1 / (1024 * 1024));
 	    s/$1 bytes free/$tmp MB free/;
-	}
-	if ($ios eq "XE" && /^((\s+)?\d+\s+\S+)\s+\d+.*(tracelogs$)/) {
-	    $_ = "$1" . sprintf("%43s", "") . "$3\n";
 	}
 
 	ProcessHistory("FLASH","","","!Flash: $dev: $_");
@@ -856,15 +880,6 @@ sub WriteTerm {
 			       "!username $1$2 password <removed>\n");
 	    } else {
 		ProcessHistory("USER","keysort","$1","$_");
-	    }
-	    next;
-	}
-	# cisco AP w/ IOS
-	if (/^(wlccp \S+ username (\S+)(\s.*)? password) (\d \S+|\S+)/) {
-	    if ($filter_pwds >= 1) {
-		ProcessHistory("USER","keysort","$2","!$1 <removed>\n");
-	    } else {
-		ProcessHistory("USER","keysort","$2","$_");
 	    }
 	    next;
 	}
@@ -1106,10 +1121,15 @@ sub DoNothing {print STDOUT;}
 
 # Main
 @commandtable = (
+	# Disable timestamps in output
+	{'terminal no-timestamp'	=> 'DoNothing' },  # XR 3.6 style
+	{'terminal exec prompt no-timestamp' => 'DoNothing' },  # XR 3.8 style
+
 	{'admin show version'		=> 'ShowVersion'},
 	{'show redundancy secondary'	=> 'ShowRedundancy'},
 	{'show install active'		=> 'ShowInstallActive'},
 	{'admin show env all'		=> 'ShowEnv'},
+	{'show diag chassis-info'	=> 'ShowGSR'},
 	{'admin show variables boot'	=> 'ShowBoot'},
 	{'dir /all nvram:'		=> 'DirSlotN'},
 	{'dir /all bootflash:'		=> 'DirSlotN'},
@@ -1206,7 +1226,7 @@ if ($ENV{"FILTER_PWDS"} =~ /no/i) {
     $filter_pwds = 1;
 }
 
-ProcessHistory("","","","!RANCID-CONTENT-TYPE: cisco\n!\n");
+ProcessHistory("","","","!RANCID-CONTENT-TYPE: cisco-xr\n!\n");
 ProcessHistory("COMMENTS","keysort","B0","!\n");
 ProcessHistory("COMMENTS","keysort","D0","!\n");
 ProcessHistory("COMMENTS","keysort","F0","!\n");
