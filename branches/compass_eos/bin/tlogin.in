@@ -113,6 +113,9 @@ for {set i 0} {$i < $argc} {incr i} {
 		set userpasswd [ lindex $argv $i ]
 	    }
 	    set do_passwd 0
+	# ssh passphrase
+	} -r* {
+	    # ignore -r
 	# VTY Password
 	} -v* {
 	    if {! [  regexp .\[vV\](.+) $arg ignore passwd]} {
@@ -677,7 +680,7 @@ foreach router [lrange $argv $i end] {
     }
 
     # look for noenable option in .cloginrc
-    if { [find noenable $router] != "" } {
+    if { [find noenable $router] == "1" } {
 	set enable 0
     }
 

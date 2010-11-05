@@ -50,12 +50,14 @@ AUTOMAKE_OPTIONS=foreign
 
 bin_PROGRAMS = hpuifilter
 bin_SCRIPTS = agmrancid alogin arancid arrancid avologin avorancid blogin \
-	brancid cat5rancid clogin complogin comprancid control_rancid \
-	cssrancid elogin erancid f5rancid f10rancid flogin fnrancid francid \
-	hlogin hrancid htlogin htrancid jerancid jlogin jrancid mrancid \
-	mrvlogin mrvrancid nlogin nrancid nslogin nsrancid nxrancid par \
-	prancid rancid-fe rancid rivlogin rivrancid rrancid srancid tlogin \
-	tntlogin tntrancid trancid xrancid xrrancid zrancid
+	brancid cat5rancid clogin \
+	complogin comprancid \
+	control_rancid cssrancid elogin erancid \
+	f5rancid f10rancid flogin fnlogin fnrancid francid hlogin hrancid \
+	htlogin htrancid jerancid jlogin jrancid mrancid mrvlogin mrvrancid \
+	nlogin nrancid nslogin nsrancid nxrancid par prancid rancid-fe rancid \
+	rivlogin rivrancid rrancid srancid tlogin tntlogin tntrancid trancid \
+	xrancid xrrancid zrancid
 
 bin_SCRIPTS += lg.cgi lgform.cgi rancid-cvs rancid-run
 EXTRA_DIST= lg.cgi.in lgform.cgi.in rancid-cvs.in rancid-run.in
