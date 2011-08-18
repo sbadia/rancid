@@ -73,6 +73,7 @@ $vendor =~ tr/[A-Z]/[a-z]/;
     'hitachi'		=> 'htrancid',
     'hp'		=> 'hrancid',
     'juniper'		=> 'jrancid',
+    'mikrotik'		=> 'mtrancid',
     'mrtd'		=> 'mrancid',
     'mrv'		=> 'mrvrancid',
     'netopia'		=> 'trancid',

@@ -323,13 +323,13 @@ proc login { router user userpswd passwd enapasswd cmethod cyphertype } {
 	    }
 	} elseif [string match "ssh*" $prog] {
 	    regexp {ssh(:([^[:space:]]+))*} $prog command suffix port
-	    set cmd [join [lindex $sshcmd 0] " "]
+	    set cmd $sshcmd
 	    if {"$port" != ""} {
 		set cmd "$cmd -p $port"
 	    }
 	    set retval [ catch {eval spawn [split "$cmd -c $cyphertype -x -l $user $router" { }]} reason ]
 	    if { $retval } {
-		send_user "\nError: $sshcmd failed: $reason\n"
+		send_user "\nError: $cmd failed: $reason\n"
 		exit 1
 	    }
 	} elseif [string match "usercmd" $prog] { # user supplies connect cmd
@@ -766,7 +766,7 @@ foreach router [lrange $argv $i end] {
     if { "$cmethod" == "" } { set cmethod {{telnet} {ssh}} }
 
     # Figure out the SSH executable name
-    set sshcmd [find sshcmd $router]
+    set sshcmd [join [lindex [find sshcmd $router] 0] ""]
     if { "$sshcmd" == "" } { set sshcmd {ssh} }
 
     # If user provides a router-specific connection method, use it

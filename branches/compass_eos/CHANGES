@@ -1,7 +1,82 @@
-2.3.6x
+2.3.7x
 	add compass support
 
+2.3.7
+	nxrancid: add show environment fex all fan cmd - Deny IP Any Any
+
+	*login: dont split $sshcmd
+
+	nxrancid: Nexus 4000s don't support 'show environment power' - Lee
+
+	xrrancid: add admin show running - Troy Boudreau
+
+	arancid: /info/sys -> /info/sys/dump - Tim Frost
+
+	rancid: correct isakmp key filter - Pan Affa
+
+	clogin; set terminal width to 132 for both -s and -c
+
+	clogin: respond to ASA's pager in long login banners - Lee
+
+	clogin: set terminal width to 132
+
+	rancid: match flash memory on likes of Cisco 2811 and 2621XM - Pan Affa
+
+	import share/rancid-cvspurge - Matthew Grossman
+
+	rancid: add 'dir /all sup-bootdisk:' for 6500 sup32 - Lee
+
+	rancid: adjust regex for tacacs key match - Pavel Korovin
+
+	*login: join sshcmd clogin directive to handle spaces properly
+
+	mt{login,rancid}: import Microtik module from Chris Boot
+
+	rancid: ppp password missed on dialer interfaces - noted by Hirofumi
+	Katou
+
+	arancid: filter "esecret" lines which change with each config display -
+	Ton
+
+	hlogin: logout from enabled mode instead of exit for -S - Thorsten Hahn
+
+	hrancid: collect show config files and show tech transceivers - Thorsten
+	Hahn
+
+	rancid: filter config timestamp on MDS/NX-OS
+
+	avorancid: collect power management file - from Darius Jan Seroka
+
+	fnrancid: correct comment character - noted by Gavin McCullagh
+
+	fnrancid: update system time and conf_file_ver filters - Gavin McCullagh
+
+	nxrancid: do not require 'show system redundancy status', apparently
+	unsupported on some nexus models.
+
+	clogin: set terminal width for -c and -s
+
+	hlogin: stacks prompt for switch number or CR at login, send CR -
+	Per-Olof Olsson
+
 2.3.6
+	rancid.spec: updated for 2.3.6 - from Florian Koch
+
+	rancid: fail on error opening nvram:
+
+	rancid: skip ASA 5520 configuration author line
+
+	control_rancid: for svn stupidity, run update (yes update) and commit
+	after setting svn:ignore, else . is out of date.
+
+	rancid: filter auto "rogue ap" configuration - Kevin Nesbitt
+
+	alogin: adjust match of active alarms msg at login
+
+	jrancid: patch for master/backup matching on EX series - Sven Engelhardt
+
+	rancid: update cisco WAE identity string match - from Jim Hock
+
 	{xr}rancid: summarize DirSlotN() bytes free as GB, else MB.
 
 	rancid: filter sflog from DirSlotN() for IOS on cisco 10k

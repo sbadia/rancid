@@ -339,7 +339,7 @@ proc login { router user userpswd passwd enapasswd cmethod cyphertype identfile 
 	} elseif [string match "ssh*" $prog] {
 	    # ssh to the router & try to login with or without an identfile.
 	    regexp {ssh(:([^[:space:]]+))*} $prog methcmd suffix port
-	    set cmd [join [lindex $sshcmd 0] " "]
+	    set cmd $sshcmd
 	    if {"$port" != ""} {
 		set cmd "$cmd -p $port"
 	    }
@@ -348,7 +348,7 @@ proc login { router user userpswd passwd enapasswd cmethod cyphertype identfile 
 	    }
 	    set retval [ catch {eval spawn hpuifilter -- [split "$cmd -c $cyphertype -x -l $user $router" { }]} reason ]
 	    if { $retval } {
-		send_user "\nError: $sshcmd failed: $reason\n"
+		send_user "\nError: $cmd failed: $reason\n"
 		return 1
 	    }
 	} elseif ![string compare $prog "rsh"] {
@@ -394,6 +394,10 @@ proc login { router user userpswd passwd enapasswd cmethod cyphertype identfile 
     expect {
 	"Press any key to continue" {
 	    send " "
+	    exp_continue
+	}
+	"Enter switch number to connect to or <CR>:" { 
+	    send "\r"
 	    exp_continue
 	}
 	-re "(Connection refused|Secure connection \[^\n\r]+ refused|Connection closed by)" {
@@ -563,7 +567,7 @@ proc run_commands { prompt command } {
 	}
     }
     log_user 1
-    send -h "exit\r"
+    send -h "logout\r"
     expect {
 	"Do you want to save current configuration"	{
 						  if {$do_saveconfig} {
@@ -732,7 +736,7 @@ foreach router [lrange $argv $i end] {
     if { "$cmethod" == "" } { set cmethod {{telnet} {ssh}} }
 
     # Figure out the SSH executable name
-    set sshcmd [find sshcmd $router]
+    set sshcmd [join [lindex [find sshcmd $router] 0] ""]
     if { "$sshcmd" == "" } { set sshcmd {ssh} }
 
     # Adjust our path to find hpuifilter

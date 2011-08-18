@@ -194,7 +194,7 @@ sub ShowVersion {
 	    next;
 	}
 	if (/cisco ios .* IOS-XE/i) { $ios = "XE"; }
-	if (/^Application and Content Networking Software/) { $type = "CE"; }
+	if (/^Application and Content Networking .*Software/) { $type = "CE"; }
 	# treat the ACE like the Content Engines for matching endofconfig
 	if (/^Cisco Application Control Software/) { $type = "CE"; }
 	if (/^Cisco Storage Area Networking Operating System/) { $type = "SAN";}
@@ -399,7 +399,8 @@ sub ShowVersion {
 	/^(\d+[kK]) bytes of (non-volatile|NVRAM)/ &&
 	    ProcessHistory("COMMENTS","keysort","B3",
 		"!Memory: nvram $1\n") && next;
-	/^(\d+[kK]) bytes of flash memory/ &&
+	/^(\d+[kK]) bytes of (flash memory|processor board System flash|ATA Comp
+actFlash)/ &&
 	    ProcessHistory("COMMENTS","keysort","B5","!Memory: flash $1\n") &&
 	    next;
 	/^(\d+[kK]) bytes of .*flash partition/ &&
@@ -1549,6 +1550,7 @@ sub WriteTerm {
 	return(1) if (/Line has invalid autocommand /);
 	return(1) if (/(Invalid (input|command) detected|Type help or )/i);
 	return(1) if (/\%Error: No such file or directory/);
+	return(1) if (/(Open device \S+ failed|Error opening \S+:)/);
 	return(0) if ($found_end);		# Only do this routine once
 	return(-1) if (/command authorization failed/i);
 	return(-1) if (/% ?configuration buffer full/i);
@@ -1581,6 +1583,10 @@ sub WriteTerm {
 	    }
 	    tr/\015//d;
 	}
+	# config timestamp on MDS/NX-OS
+	/Time: / && next;
+	# skip ASA 5520 configuration author line
+	/^: written by /i && next;
 	# some versions have other crap mixed in with the bits in the
 	# block above
 	/^! (Last configuration|NVRAM config last)/ && next;
@@ -1643,6 +1649,8 @@ sub WriteTerm {
 	    }
 	    next;
 	}
+	# filter auto "rogue ap" configuration lines
+	/^rogue ap classify / && next;
 	if (/^( set session-key (in|out)bound ah \d+ )/ && $filter_pwds >= 1) {
 	    ProcessHistory("","","","!$1<removed>\n");
 	    next;
@@ -1664,7 +1672,7 @@ sub WriteTerm {
 	    ProcessHistory("","","","! neighbor $1 password <removed>\n");
 	    next;
 	}
-	if (/^(ppp .* password) 7 .*/ && $filter_pwds >= 1) {
+	if (/^(\s*ppp .* password) 7 .*/ && $filter_pwds >= 1) {
 	    ProcessHistory("","","","!$1 <removed>\n"); next;
 	}
 	if (/^(ip ftp password) / && $filter_pwds >= 1) {
@@ -1690,7 +1698,7 @@ sub WriteTerm {
 	    && $filter_pwds >= 1) {
 	    ProcessHistory("","","","!$1 <removed>\n"); next;
 	}
-	if (/^((crypto )?isakmp key) \S+ / && $filter_pwds >= 1) {
+	if (/^((crypto )?isakmp key) (\d )?\S+ / && $filter_pwds >= 1) {
 	    ProcessHistory("","","","!$1 <removed> $'"); next;
 	}
 	# filter HSRP passwords
@@ -1823,7 +1831,7 @@ sub WriteTerm {
 	    }
 	}
 	# prune tacacs/radius server keys
-	if (/^((tacacs|radius)-server\s(\w*[-\s(\s\S+])*\s?key) (\d )?\w+/
+	if (/^((tacacs|radius)-server\s(\w*[-\s(\s\S+])*\s?key) (\d )?\S+/
 	    && $filter_pwds >= 1) {
 	    ProcessHistory("","","","!$1 <removed>$'"); next;
 	}
@@ -1912,6 +1920,7 @@ sub DoNothing {print STDOUT;}
 	{'dir /all harddisk:'		=> 'DirSlotN'},
 	{'dir /all harddiska:'		=> 'DirSlotN'},
 	{'dir /all harddiskb:'		=> 'DirSlotN'},
+	{'dir /all sup-bootdisk:'	=> 'DirSlotN'},		# 6500 sup32
 	{'dir /all sup-bootflash:'	=> 'DirSlotN'},		# cat 6500-ios
 	{'dir /all sup-microcode:'	=> 'DirSlotN'},		# cat 6500-ios
 	{'dir /all slavenvram:'		=> 'DirSlotN'},
@@ -1976,7 +1985,7 @@ if ($file) {
 } else {
     print STDERR "executing clogin -t $timeo -c\"$cisco_cmds\" $host\n" if ($debug);
     print STDOUT "executing clogin -t $timeo -c\"$cisco_cmds\" $host\n" if ($log);
-    if (defined($ENV{NOPIPE})) {
+    if (defined($ENV{NOPIPE}) && $ENV{NOPIPE} =~ /^YES/i) {
 	system "clogin -t $timeo -c \"$cisco_cmds\" $host </dev/null > $host.raw 2>&1" || die "clogin failed for $host: $!\n";
 	open(INPUT, "< $host.raw") || die "clogin failed for $host: $!\n";
     } else {
@@ -2049,7 +2058,7 @@ ProcessHistory("","","","");
 close(INPUT);
 close(OUTPUT);
 
-if (defined($ENV{NOPIPE})) {
+if (defined($ENV{NOPIPE}) && $ENV{NOPIPE} =~ /^YES/i) {
     unlink("$host.raw") if (! $debug);
 }
 

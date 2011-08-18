@@ -440,6 +440,33 @@ sub AdminShowDiag {
     return(0);
 }
 
+# This routine parses "admin show running".
+# This will create arrays for hw info.
+sub AdminShowRunning {
+    print STDERR "    In ShowRunning: $_" if ($debug);
+
+    while (<INPUT>) {
+	tr/\015//d;
+	if (/^$prompt/) { $found_diag = 1; last};
+	next if (/^(\s*|\s*$cmd\s*)$/);
+	return(1) if (/Line has invalid autocommand /);
+	return(1) if (/(Invalid (input|command) detected|Type help or )/i);
+	return(-1) if (/command authorization failed/i);
+	/^$/ && next;
+
+	/^building configuration/i && next;
+	if (/^(\s*secret) / && $filter_pwds >= 2) {
+	    ProcessHistory("SLOT","","","!$1 <removed>\n");
+	    next;
+	}
+	/^end$/ && last;
+
+	ProcessHistory("SLOT","","","!$_");
+    }
+    ProcessHistory("SLOT","","","!\n");
+    return(0);
+}
+
 # This routine parses "show redundancy"
 sub ShowRedundancy {
     print STDERR "    In ShowRedundancy: $_" if ($debug);
@@ -1198,6 +1225,7 @@ sub DoNothing {print STDOUT;}
 	{'dir /all sec-slot2:'		=> 'DirSlotN'},
 	{'dir /all sec-disk2:'		=> 'DirSlotN'},
 	{'show controllers'		=> 'ShowContAll'},
+	{'admin show running'		=> 'AdminShowRunning'},
 	{'admin show diag'		=> 'AdminShowDiag'},
 	{'admin show inventory raw'	=> 'ShowInventory'},
 	{'show vlan'			=> 'ShowVLAN'},
@@ -1233,7 +1261,7 @@ if ($file) {
 } else {
     print STDERR "executing clogin -t $timeo -c\"$cisco_cmds\" $host\n" if ($debug);
     print STDOUT "executing clogin -t $timeo -c\"$cisco_cmds\" $host\n" if ($log);
-    if (defined($ENV{NOPIPE})) {
+    if (defined($ENV{NOPIPE}) && $ENV{NOPIPE} =~ /^YES/i) {
 	system "clogin -t $timeo -c \"$cisco_cmds\" $host </dev/null > $host.raw 2>&1" || die "clogin failed for $host: $!\n";
 	open(INPUT, "< $host.raw") || die "clogin failed for $host: $!\n";
     } else {
@@ -1306,7 +1334,7 @@ ProcessHistory("","","","");
 close(INPUT);
 close(OUTPUT);
 
-if (defined($ENV{NOPIPE})) {
+if (defined($ENV{NOPIPE}) && $ENV{NOPIPE} =~ /^YES/i) {
     unlink("$host.raw") if (! $debug);
 }
 
