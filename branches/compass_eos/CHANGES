@@ -2,6 +2,20 @@
 	add compass support
 
 2.3.7
+	*login: update host key change match for newer ssh
+
+	clogin: disable pager for XOS-12.3 - Zenon Mousmoulas
+
+	rancid.conf & control_rancid: support arbitrary subversion URLs as
+	(pre-provisioned) repositories and do not overwrite an existing local
+	 repository - Zenon Mousmoulas
+
+	rancid.conf: add LC_COLLATE - Daniel Schmidt
+
+	nlogin: add identfile support - Garry Shtern
+
+	hrancid: match 'logout' in new procurve versions for end of run
+
 	hrancid: include comment line for procurve parser - Per-Olof Olsson
 
 	hrancid: collect show config status - mostly from Per-Olof Olsson
