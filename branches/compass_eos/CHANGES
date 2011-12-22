@@ -2,8 +2,6 @@
 	add compass support
 
 2.3.7
-	*login: update host key change match for newer ssh
-
 	xrancid: misc patches for XOS - Zenon Mousmoulas
 
 	rancid-cvs: svn repository handling improvement - Zenon Mousmoulas
@@ -160,7 +158,6 @@
 	nxrancid: show environment clock and show core vdc-all are not valid
 	commands on all platforms - Ryan West
 
->>>>>>> .merge-right.r2237
 2.3.4
 	nrancid: fix serial number matching - Nathan Wallwork
 
