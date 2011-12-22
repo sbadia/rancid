@@ -1230,6 +1230,7 @@ sub DoNothing {print STDOUT;}
 	{'admin show inventory raw'	=> 'ShowInventory'},
 	{'show vlan'			=> 'ShowVLAN'},
 	{'show debug'			=> 'ShowDebug'},
+	{'show rpl maximum'		=> 'ShowDebug'},
 	{'show running-config'		=> 'WriteTerm'},
 );
 # Use an array to preserve the order of the commands and a hash for mapping
