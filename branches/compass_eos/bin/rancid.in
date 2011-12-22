@@ -1672,7 +1672,7 @@ sub WriteTerm {
 	    ProcessHistory("","","","! neighbor $1 password <removed>\n");
 	    next;
 	}
-	if (/^(\s*ppp .* password) 7 .*/ && $filter_pwds >= 1) {
+	if (/^(\s*ppp .* (hostname|password \d) .*/ && $filter_pwds >= 1) {
 	    ProcessHistory("","","","!$1 <removed>\n"); next;
 	}
 	if (/^(ip ftp password) / && $filter_pwds >= 1) {
@@ -1725,8 +1725,13 @@ sub WriteTerm {
 	if (/^( pre-shared-key | key |failover key ).*/ && $filter_pwds >= 1) {
 	    ProcessHistory("","","","!$1 <removed> $'"); next;
 	}
+	# ASA/PIX keys in more system:running-config
 	if (/(\s+ldap-login-password )\S+(.*)/ && $filter_pwds >= 1) {
 	    ProcessHistory("","","","!$1 <removed> $'"); next;
+	}
+	# filter WPA password such as on cisco 877W ISR
+	if (/^\s+(wpa-psk ascii|hex \d) / && $filter_pwds >= 1) {
+	    ProcessHistory("","","","!$1 <removed>\n"); next;
 	}
 	#
 	if (/^( cable shared-secret )/ && $filter_pwds >= 1) {
@@ -1953,6 +1958,8 @@ sub DoNothing {print STDOUT;}
 	{'show vlan-switch'		=> 'ShowVLAN'},
 	{'show debug'			=> 'ShowDebug'},
 	{'more system:running-config'	=> 'WriteTerm'},	# ASA/PIX
+	{'show running-config view full'=> 'WriteTerm'},	# workaround for
+								# role-based CLI
 	{'show running-config'		=> 'WriteTerm'},
 	{'write term'			=> 'WriteTerm'},
 );

@@ -4,6 +4,18 @@
 2.3.7
 	*login: update host key change match for newer ssh
 
+	xrancid: misc patches for XOS - Zenon Mousmoulas
+
+	rancid-cvs: svn repository handling improvement - Zenon Mousmoulas
+
+	rancid: filter WPA passwd - Pavel Korovin
+
+	rancid: add 'show running-config view full' for role cli - Pavel Korovin
+
+	rancid: filter ppp hostnames (aka usernames) - Pavel Korovin
+
+	*login: update host key change match for newer ssh
+
 	clogin: disable pager for XOS-12.3 - Zenon Mousmoulas
 
 	rancid.conf & control_rancid: support arbitrary subversion URLs as
