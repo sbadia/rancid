@@ -215,7 +215,6 @@ sub ShowModule {
 	return(1) if /(invalid command name)/;
 
 	/^\d+\// && s/(\w+\s+\w+\s+\w+\s+\w+)\s+.*/$1/;
-#s/\s+\d+\S+$//;
 
 	ProcessHistory("Module","","","! $_");
     }
@@ -225,7 +224,6 @@ sub ShowModule {
 
 # This routine parses "show inventory"
 sub ShowInventory {
-    my($linecnt) = 0;
     print STDERR "    In ShowInventory: $_" if ($debug);
 
     while (<INPUT>) {
@@ -280,7 +278,6 @@ sub ShowVersion {
 	next if (/^\# *uptime +\d+\s*$/);
 	# XXX why is show version missing?
 	return(1) if /(invalid command name)/;
-
 
 	next if (/\*\*\*/);
 
