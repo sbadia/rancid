@@ -164,8 +164,8 @@ sub sortbyipaddr {
     &ipaddrval($a) <=> &ipaddrval($b);
 }
 
-# This routine parses "show configure"
-sub ShowConfigure {
+# This routine parses "show configuration"
+sub ShowConfig {
     my($linecnt) = 0;
     print STDERR "    In ShowConfig: $_" if ($debug);
 
@@ -177,16 +177,20 @@ sub ShowConfigure {
 	next if (/^Can\'t find object or class named \"\-all\"\s*$/);
 	next if (/lock-address .*$/);
 	next if (/^\# *uptime +\d+\s*$/);
+	return(1) if /(invalid command name)/;
+
 	if (/community label /) {
 	    if ($filter_commstr) {
 		$_ =~ s/community label .*$/community label <removed>/;
 	    }
 	}
-	return(1) if /(invalid command name)/;
+	if (/^\s+(password) (\$1\$.*)?/ && $filter_pwds == 2) {
+	    ProcessHistory("","","","!$1 <removed>$3\n"); next;
+	}
+
 	ProcessHistory("","","","$_");
 	$linecnt++;
     }
-    # ProcessHistory("","","","!$_");
 
     # as of release 2
     # The Compass lacks a definitive "end of config" marker. 
@@ -194,6 +198,95 @@ sub ShowConfigure {
 	$found_end = 1;
 	return(1);
     }
+    return(0);
+}
+
+# This routine parses "show module"
+sub ShowModule {
+    print STDERR "    In ShowModule: $_" if ($debug);
+
+    while (<INPUT>) {
+	tr/\015//d;
+	last if (/^$prompt/);
+	next if (/^(\s*|\s*$cmd\s*)$/);
+	next if (/^Can\'t find object or class named \"\-all\"\s*$/);
+	next if (/lock-address .*$/);
+	next if (/^\# *uptime +\d+\s*$/);
+	return(1) if /(invalid command name)/;
+
+	/^\d+\// && s/(\w+\s+\w+\s+\w+\s+\w+)\s+.*/$1/;
+#s/\s+\d+\S+$//;
+
+	ProcessHistory("Module","","","! $_");
+    }
+    ProcessHistory("Module","","","!\n");
+    return(0);
+}
+
+# This routine parses "show inventory"
+sub ShowInventory {
+    my($linecnt) = 0;
+    print STDERR "    In ShowInventory: $_" if ($debug);
+
+    while (<INPUT>) {
+	tr/\015//d;
+	last if (/^$prompt/);
+	next if (/^(\s*|\s*$cmd\s*)$/);
+	next if (/^Can\'t find object or class named \"\-all\"\s*$/);
+	next if (/lock-address .*$/);
+	next if (/^\# *uptime +\d+\s*$/);
+	return(1) if /(invalid command name)/;
+
+	/^\d+\// && s/\s+\d+\S+$//;
+
+	ProcessHistory("Inventory","","","! $_");
+    }
+    ProcessHistory("Inventory","","","!\n");
+    return(0);
+}
+
+# This routine parses "show system software *"
+sub ShowSoftware {
+    print STDERR "    In ShowSoftware: $_" if ($debug);
+
+    while (<INPUT>) {
+	tr/\015//d;
+	last if (/^$prompt/);
+	next if (/^(\s*|\s*$cmd\s*)$/);
+	next if (/^Can\'t find object or class named \"\-all\"\s*$/);
+	next if (/lock-address .*$/);
+	next if (/^\# *uptime +\d+\s*$/);
+	return(1) if /(invalid command name)/;
+
+	s/\s+$/\n/;
+	ProcessHistory("Software","","","! $_");
+    }
+    ProcessHistory("Software","","","!\n");
+    return(0);
+}
+
+# This routine parses "show system version", "show system build-parameters"
+sub ShowVersion {
+    print STDERR "    In ShowVersion: $_" if ($debug);
+
+    while (<INPUT>) {
+	tr/\015//d;
+	last if (/^$prompt/);
+	return(1) if (/^-*\^\s*$/);		# missing command
+	return(1) if (/^syntax error: /);	# missing command
+	next if (/^(\s*|\s*$cmd\s*)$/);
+	next if (/^Can\'t find object or class named \"\-all\"\s*$/);
+	next if (/lock-address .*$/);
+	next if (/^\# *uptime +\d+\s*$/);
+	# XXX why is show version missing?
+	return(1) if /(invalid command name)/;
+
+
+	next if (/\*\*\*/);
+
+	ProcessHistory("Version","","","! $_");
+    }
+    ProcessHistory("Version","","","!\n");
     return(0);
 }
 
@@ -220,7 +313,14 @@ sub DoNothing {print STDOUT;}
 
 # Main
 @commandtable = (
-	{'show configuration detail'	=> 'ShowConfigure'}
+	{'show version'			=> 'ShowVersion'},
+	{'show system build-parameters'	=> 'ShowVersion'},
+	{'show system software images '	=> 'ShowSoftware'},
+	{'show system software packages'=> 'ShowSoftware'},
+
+	{'show system module'=>			'ShowModule'},
+	{'show inventory'=>			'ShowInventory'},
+	{'show configuration detail'	=> 'ShowConfig'}
 );
 # Use an array to preserve the order of the commands and a hash for mapping
 # commands to the subroutine and track commands that have been completed.
