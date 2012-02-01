@@ -208,6 +208,7 @@ sub ShowModule {
     while (<INPUT>) {
 	tr/\015//d;
 	last if (/^$prompt/);
+	return(1) if (/^-+\^/);			# missing command XXX
 	next if (/^(\s*|\s*$cmd\s*)$/);
 	next if (/^Can\'t find object or class named \"\-all\"\s*$/);
 	next if (/lock-address .*$/);
@@ -229,6 +230,7 @@ sub ShowInventory {
     while (<INPUT>) {
 	tr/\015//d;
 	last if (/^$prompt/);
+	return(1) if (/^-+\^/);			# missing command XXX
 	next if (/^(\s*|\s*$cmd\s*)$/);
 	next if (/^Can\'t find object or class named \"\-all\"\s*$/);
 	next if (/lock-address .*$/);
@@ -250,6 +252,7 @@ sub ShowSoftware {
     while (<INPUT>) {
 	tr/\015//d;
 	last if (/^$prompt/);
+	return(1) if (/^-+\^/);			# missing command XXX
 	next if (/^(\s*|\s*$cmd\s*)$/);
 	next if (/^Can\'t find object or class named \"\-all\"\s*$/);
 	next if (/lock-address .*$/);
@@ -270,8 +273,8 @@ sub ShowVersion {
     while (<INPUT>) {
 	tr/\015//d;
 	last if (/^$prompt/);
-	return(1) if (/^-*\^\s*$/);		# missing command
-	return(1) if (/^syntax error: /);	# missing command
+	return(1) if (/^-+\^/);			# missing command XXX
+	return(1) if (/^syntax error: /);	# missing command XXX
 	next if (/^(\s*|\s*$cmd\s*)$/);
 	next if (/^Can\'t find object or class named \"\-all\"\s*$/);
 	next if (/lock-address .*$/);
