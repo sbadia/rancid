@@ -1,5 +1,10 @@
-2.3.8x
+2.3.9x
 	add compass support
+
+2.3.9
+	xrrancid: additional file filters for 4.2
+
+	hpuifilter: dont use memcpy for overlapping regions - David Byers
 
 2.3.8
 	rancid: filter sup-bootflash if sup-bootdisk worked

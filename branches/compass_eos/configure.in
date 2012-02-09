@@ -9,7 +9,7 @@ VERSION=`sed -n 's/.*version.*"\(.*\)".*/\1/p' $srcdir/include/version.h.in|tr -
 PACKAGE=`sed -n 's/.*package.*"\(.*\)".*/\1/p' $srcdir/include/version.h.in|tr -d ' '`
 AC_SUBST(VERSION)
 AC_SUBST(PACKAGE)
-COPYYEARS="1997-2011"
+COPYYEARS="1997-2012"
 AC_SUBST(COPYYEARS)
 
 AM_INIT_AUTOMAKE($PACKAGE, $VERSION, rancid@shrubbery.net)
@@ -447,7 +447,7 @@ extern int		errno;
 ])
 AC_CONFIG_HEADERS(include/config.h)
 
-AC_CONFIG_FILES(bin/control_rancid bin/par bin/rancid-fe, [chmod a+x $ac_file])
+AC_CONFIG_FILES(bin/control_rancid bin/par, [chmod a+x $ac_file])
 AC_CONFIG_FILES(bin/agmrancid, [chmod a+x $ac_file])
 AC_CONFIG_FILES(bin/alogin bin/arancid, [chmod a+x $ac_file])
 AC_CONFIG_FILES(bin/arrancid, [chmod a+x $ac_file])
