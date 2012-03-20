@@ -215,7 +215,7 @@ sub ShowModule {
 	next if (/^\# *uptime +\d+\s*$/);
 	return(1) if /(invalid command name)/;
 
-	/^\d+\// && s/(\w+\s+\w+\s+\w+\s+\w+)\s+.*/$1/;
+	/^\d+\// && s/(\d+\/\S+\s+\S+\s+\S+\s+\S+).*/$1/;
 
 	ProcessHistory("Module","","","! $_");
     }
@@ -236,6 +236,8 @@ sub ShowInventory {
 	next if (/lock-address .*$/);
 	next if (/^\# *uptime +\d+\s*$/);
 	return(1) if /(invalid command name)/;
+
+	next if /hours counter/;
 
 	/^\d+\// && s/\s+\d+\S+$//;
 
