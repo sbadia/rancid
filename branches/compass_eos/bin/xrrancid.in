@@ -3,7 +3,7 @@
 ## $Id$
 ##
 ## @PACKAGE@ @VERSION@
-## Copyright (c) 1997-2010 by Terrapin Communications, Inc.
+## Copyright (c) @COPYYEARS@ by Terrapin Communications, Inc.
 ## All rights reserved.
 ##
 ## This code is derived from software contributed to and maintained by
@@ -604,9 +604,12 @@ sub DirSlotN {
 	    if ($tmp >= (1024 * 1024 * 1024)) {
 		$tmp = int($tmp / (1024 * 1024 * 1024));
 		s/$1 bytes free/$tmp GB free/;
-	    } else {
+	    } elsif ($tmp >= (1024 * 1024)) {
 		$tmp = int($tmp / (1024 * 1024));
 		s/$1 bytes free/$tmp MB free/;
+	    } else {
+		$tmp = int($tmp / 1024);
+		s/$1 bytes free/$tmp KB free/;
 	    }
 	}
 

@@ -2,6 +2,23 @@
 	add compass support
 
 2.3.9
+	Add MAILOPTS variable to rancid.conf - Matej Vela
+
+	share/Makefile: missing MAIL* variables in sed script - Aaron Smith
+
+	jrancid: distill used subscriber licenses to a percentage, else its
+	forever changing.
+
+	nxrancid: nx5000 generates spurious 'Permission denied' error for 'show
+	debug' if command authorization is used - Per-Olof Olsson
+
+	nxrancid: remove cisco ios residuals - Per-Olof Olsson
+
+	hlogin: add "--" in comment to prevent older expect/tcl from
+	interpretting "-," as an option. !@#&!#$
+
+	rancid, xrrancid: add KB to disk/flash bytes free filtering
+
 	xrrancd: also filter temp_static_data
 
 	clogin.1: note not using [#>] in prompts

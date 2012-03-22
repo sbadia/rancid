@@ -3,7 +3,7 @@
 ## $Id$
 ##
 ## @PACKAGE@ @VERSION@
-## Copyright (c) 1997-2008 by Terrapin Communications, Inc.
+## Copyright (c) @COPYYEARS@ by Terrapin Communications, Inc.
 ## All rights reserved.
 ##
 ## This code is derived from software contributed to and maintained by
@@ -468,6 +468,18 @@ sub ShowSystemLicense {
 	last if (/^$prompt/);
 	next if (/^system (shutdown message from|going down )/i);
 	next if (/^\{(master|backup)(:\d+)?\}/);
+
+	# licenses used changes constantly.  distill it to a percentage.
+	if (/^(\s+scale-subscriber)(\s+)(\d+)(\s+\d+)(.*$)/) {
+	    my($a, $sp, $used, $avail, $rem) = ($1, $2, $3, $4, $');
+	    my($spl, $usedl) = (length($sp), length($used));
+	    my($pcnt) = int(($used + 0.0) / ($avail + 0.0) * 100);
+	    my($pcntl) = length($pcnt) + 1;
+	    $spl = $spl + $usedl - $pcntl;
+
+	    my($fmt) = "%s%-" . $spl . "s%d%%%s%s";
+	    $_ = sprintf($fmt, $a, "", $pcnt, $avail, $rem);
+	}
 
 	/Unrecognized command/ && return(1);
 	/command is not valid/ && return(1);
