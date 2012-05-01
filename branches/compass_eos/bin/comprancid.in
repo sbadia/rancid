@@ -1,10 +1,9 @@
 #! @PERLV_PATH@
 ##
 ## $Id$
-## hacked version of Hank's rancid - this one tries to deal with Compass's.
 ##
 ## @PACKAGE@ @VERSION@
-## Copyright (c) 1997-2008 by Terrapin Communications, Inc.
+## Copyright (c) @COPYYEARS@ by Terrapin Communications, Inc.
 ## All rights reserved.
 ##
 ## This code is derived from software contributed to and maintained by
@@ -41,12 +40,14 @@
 ## ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 ## POSSIBILITY OF SUCH DAMAGE.
 # 
+# hacked version of Hank's rancid - this one tries to deal with Compasses.
+#
 #  RANCID - Really Awesome New Cisco confIg Differ
 #
-# usage: comprancid [-dV] [-l] [-f filename | hostname]
+# usage: comprancid [-dlCV] [-f filename | hostname]
 #
 use Getopt::Std;
-getopts('dflV');
+getopts('dflCV');
 if ($opt_V) {
     print "@PACKAGE@ @VERSION@\n";
     exit(0);
@@ -192,8 +193,8 @@ sub ShowConfig {
 	$linecnt++;
     }
 
-    # as of release 2
-    # The Compass lacks a definitive "end of config" marker. 
+    # The Compass lacks a definitive "end of config" marker as of release 2;
+    # but a PR is open to fix this.
     if ($linecnt > 5) {
 	$found_end = 1;
 	return(1);
@@ -214,6 +215,23 @@ sub ShowModule {
 	next if (/lock-address .*$/);
 	next if (/^\# *uptime +\d+\s*$/);
 	return(1) if /(invalid command name)/;
+
+	# the table header changes length/formatting with the operational time
+	# stamp.
+	if (/^slot/i) {
+	    ProcessHistory("Module","","","! SLOT                ADMIN\n");
+	    next;
+	}
+	if (/^index/i) {
+	    ProcessHistory("Module","","",
+			   "! INDEX   TYPE        STATE   OPER STATE\n");
+	    next;
+	}
+	if (/^-----/i) {
+	    ProcessHistory("Module","","",
+			   "! --------------------------------------\n");
+	    next;
+	}
 
 	/^\d+\// && s/(\d+\/\S+\s+\S+\s+\S+\s+\S+).*/$1/;
 
@@ -341,6 +359,10 @@ if (length($host) == 0) {
 	exit(1);
     }
 }
+if ($opt_C) {
+    print "complogin -t $timeo -c\'$cisco_cmds\' $host\n";
+    exit(0);
+}
 open(OUTPUT,">$host.new") || die "Can't open $host.new for writing: $!\n";
 select(OUTPUT);
 # make OUTPUT unbuffered if debugging
@@ -362,9 +384,9 @@ if ($file) {
 }
 
 # determine ACL sorting mode
-if ($ENV{"ACLSORT"} =~ /no/i) { 
-    $aclsort = ""; 
-} 
+if ($ENV{"ACLSORT"} =~ /no/i) {
+    $aclsort = "";
+}
 # determine community string filtering mode
 if (defined($ENV{"NOCOMMSTR"}) &&
     ($ENV{"NOCOMMSTR"} =~ /yes/i || $ENV{"NOCOMMSTR"} =~ /^$/)) {
