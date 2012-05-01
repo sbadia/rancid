@@ -76,4 +76,6 @@ smc:script:srancid
 #
 tnt:script:tntrancid
 #
+xirrus:script:xirancid
+#
 zebra:script:zrancid

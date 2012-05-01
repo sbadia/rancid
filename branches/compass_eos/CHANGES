@@ -1,7 +1,56 @@
-2.3.9x
-	add compass support
+3.0ax1
+	rivlogin,jlogin,fnlogin: command-line option clean-up
 
-2.3.9
+	mtlogin: fix cloginrc timeout handling & clean-up command-line options
+
+	xrancid: capture more info from show switch.
+
+	xrrancid: filter changing files (*_cont) from nvram:.
+
+	rancid: ignore "Load for five secs:" and "Time source is
+	NTP" lines.
+
+	rancid: remove LISP-MapCache files; fix date removal for dhcp &
+	vlan.dat files in flash.
+
+	nxrancid: delete the line with the "^" from the "Invalid command at" errors.
+
+	hlogin: add "username" to prompt match for Cisco ACS 5.3 - Skye Hagen
+
+	rancid: Filter issu_loc_lock and volt_cont files
+
+	nxrancid: try to get show env power output to line up better.
+
+	hrancid: ignore unrecognized command for "show system( |-)information"
+
+	xirancid: xirrus support - Aaron Smith
+
+	jrancid: filter $9$ at the FILTER_PWDS=YES level
+
+	rancid: include fans in ShowEnv - Affa Pan
+
+	fnlogin: correct check for ssh port setting - Robert Blayzor
+
+	rancid: adjust snmp community filter for ASA version >=8.x - Skye Hagen
+
+	Add MAILOPTS variable to rancid.conf - Matej Vela
+
+	share/Makefile: missing MAIL* variables in sed script - Aaron Smith
+
+	jrancid: distill used subscriber licenses to a percentage, else its
+	forever changing.
+
+	nxrancid: nx5000 generates spurious 'Permission denied' error for 'show
+	debug' if command authorization is used - Per-Olof Olsson
+
+	nxrancid: remove cisco ios residuals - Per-Olof Olsson
+
+	hlogin: add "--" in comment to prevent older expect/tcl from
+	interpretting "-," as an option. !@#&!#$
+
+	rancid, xrrancid: add KB to disk/flash bytes free filtering
+
+>>>>>>> .merge-right.r2468
 	Add MAILOPTS variable to rancid.conf - Matej Vela
 
 	share/Makefile: missing MAIL* variables in sed script - Aaron Smith
