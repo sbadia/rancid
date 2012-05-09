@@ -1,4 +1,10 @@
 3.0ax1
+	comprancid: fail on command premature exit/failure in show config
+
+	comprancid: fail on read failure in show inventory
+
+	comprancid: add recognitin of EOS 1.1 end of config marker
+
 	*rancid: add the -C option
 
 	rivlogin,jlogin,fnlogin: command-line option clean-up

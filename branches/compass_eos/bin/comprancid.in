@@ -178,7 +178,8 @@ sub ShowConfig {
 	next if (/^Can\'t find object or class named \"\-all\"\s*$/);
 	next if (/lock-address .*$/);
 	next if (/^\# *uptime +\d+\s*$/);
-	return(1) if /(invalid command name)/;
+	return(1) if /invalid command name/;
+	return(-1) if /error: application error/i;
 
 	if (/community label /) {
 	    if ($filter_commstr) {
@@ -191,10 +192,13 @@ sub ShowConfig {
 
 	ProcessHistory("","","","$_");
 	$linecnt++;
+	if (/^!\s*end-of-config/) {
+	    $found_end = 1;
+	    return(0);
+	}
     }
 
-    # The Compass lacks a definitive "end of config" marker as of release 2;
-    # but a PR is open to fix this.
+    # Prior to EOS 1.1, the Compass lacked a definitive "end of config" marker.
     if ($linecnt > 5) {
 	$found_end = 1;
 	return(1);
@@ -214,7 +218,7 @@ sub ShowModule {
 	next if (/^Can\'t find object or class named \"\-all\"\s*$/);
 	next if (/lock-address .*$/);
 	next if (/^\# *uptime +\d+\s*$/);
-	return(1) if /(invalid command name)/;
+	return(1) if /invalid command name/;
 
 	# the table header changes length/formatting with the operational time
 	# stamp.
@@ -253,7 +257,8 @@ sub ShowInventory {
 	next if (/^Can\'t find object or class named \"\-all\"\s*$/);
 	next if (/lock-address .*$/);
 	next if (/^\# *uptime +\d+\s*$/);
-	return(1) if /(invalid command name)/;
+	return(-1) if /invalid command name/;
+	return(-1) if /(error: |reading .* failed!)/i;
 
 	next if /hours counter/;
 
@@ -277,7 +282,7 @@ sub ShowSoftware {
 	next if (/^Can\'t find object or class named \"\-all\"\s*$/);
 	next if (/lock-address .*$/);
 	next if (/^\# *uptime +\d+\s*$/);
-	return(1) if /(invalid command name)/;
+	return(1) if /invalid command name/;
 
 	s/\s+$/\n/;
 	ProcessHistory("Software","","","! $_");
@@ -300,7 +305,7 @@ sub ShowVersion {
 	next if (/lock-address .*$/);
 	next if (/^\# *uptime +\d+\s*$/);
 	# XXX why is show version missing?
-	return(1) if /(invalid command name)/;
+	return(1) if /invalid command name/;
 
 	next if (/\*\*\*/);
 
