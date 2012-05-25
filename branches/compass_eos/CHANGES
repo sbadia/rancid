@@ -5,6 +5,8 @@
 
 	comprancid: add recognitin of EOS 1.1 end of config marker
 
+	anrancid: add arbor networks module
+
 	*rancid: add the -C option
 
 	rivlogin,jlogin,fnlogin: command-line option clean-up
