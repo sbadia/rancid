@@ -258,6 +258,8 @@ sub ShowInventory {
 	next if (/lock-address .*$/);
 	next if (/^\# *uptime +\d+\s*$/);
 	return(-1) if /invalid command name/;
+	next if (/Reading of the DPG1 eeprom .* failed/);	# XXX EFT cards
+
 	return(-1) if /(error: |reading .* failed!)/i;
 
 	next if /hours counter/;
