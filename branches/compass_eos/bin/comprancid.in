@@ -206,7 +206,7 @@ sub ShowConfig {
     return(0);
 }
 
-# This routine parses "show module"
+# This routine parses "show system module"
 sub ShowModule {
     print STDERR "    In ShowModule: $_" if ($debug);
 
