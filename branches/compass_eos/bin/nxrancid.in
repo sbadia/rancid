@@ -375,13 +375,9 @@ sub ShowEnvPower {
 #-------  -------------------  -----------  -----------  --------------
 #2        NURBURGRING                N/A          573 W    Powered-Up
 #fan1                                N/A          720 W    Powered-Up
-	s/      Actual /  /;
-	s/      Output /  /;
-	s/    \(Watts \) /  /;
-	s/        Draw /  /;
-	s/ ----------- /  /;
-	s/        N\/A  /  / ||
-	s/ [ \d]{8}\d W /  /;	# Does not chop enough to line up.
+	if ( /(.* +)(\d+ W)( +\d+ W.*)/) {
+	    $_ = sprintf("%s%-". length($2)."s%s\n", $1, "", $3);
+	}
 
 	/actual draw/ && next;	# Drop changing total power output.
 
