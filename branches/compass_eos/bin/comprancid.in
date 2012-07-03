@@ -345,8 +345,8 @@ sub DoNothing {print STDOUT;}
 	{'show system software images '	=> 'ShowSoftware'},
 	{'show system software packages'=> 'ShowSoftware'},
 
-	{'show system module'=>			'ShowModule'},
-	{'show inventory'=>			'ShowInventory'},
+	{'show system module'		=> 'ShowModule'},
+	{'show inventory'		=> 'ShowInventory'},
 	{'show configuration detail'	=> 'ShowConfig'}
 );
 # Use an array to preserve the order of the commands and a hash for mapping
