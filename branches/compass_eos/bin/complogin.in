@@ -715,6 +715,12 @@ foreach router [lrange $argv $i end] {
     set platform ""
     send_user -- "$router\n"
 
+    # device timeout
+    set timeout [find timeout $router]
+    if { [llength $timeout] == 0 } {
+	set timeout $timeoutdflt
+    }
+
     # Figure out the prompt.
     # autoenable is off by default.  If we have it defined, it was done
     # on the command line.  If it is not specifically set on the command
