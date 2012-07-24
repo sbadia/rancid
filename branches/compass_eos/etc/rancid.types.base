@@ -5,28 +5,94 @@
 # existing types, it will be harder to provide support to you and I will hate
 # you.
 #
-agm:script:agmrancid
+agm;script;agmrancid
 #
-alteon:script:arancid
+alteon;script;arancid
 #
-arbor:script:anrancid
+arbor;script;grancid
+arbor;login;anlogin
+arbor;module;arbor
+arbor;command;arbor::ShowVersion;system version
+arbor;command;arbor::ShowHardware;system hardware
+arbor;command;arbor::ShowConfig;config show
 #
-arista:script:arrancid
+arista;script;arrancid
 #
-avocent:script:avorancid
+avocent;script;avorancid
 #
-baynet:script:brancid
+baynet;script;brancid
 #
-cat5:script:cat5rancid
+cat5;script;cat5rancid
 #
-cisco:script:rancid
-cisco:login:clogin
-cisco:command:ShowVersion:show version
+# Cisco IOS device
+cisco;script;grancid
+cisco;login;clogin
+cisco;module;ios
+cisco;command;ios::ShowVersion;show version
+cisco;command;ios::ShowRedundancy;show redundancy secondary
+cisco;command;ios::ShowIDprom;show idprom backplane
+cisco;command;ios::ShowInstallActive;show install active
+cisco;command;ios::ShowEnv;show env all
+cisco;command;ios::ShowRSP;show rsp chassis-info
+cisco;command;ios::ShowGSR;show gsr chassis
+cisco;command;ios::ShowGSR;show diag chassis-info
+cisco;command;ios::ShowBoot;show boot
+cisco;command;ios::ShowBoot;show bootvar
+cisco;command;ios::ShowBoot;show variables boot
+cisco;command;ios::ShowFlash;show flash
+cisco;command;ios::DirSlotN;dir /all nvram:
+cisco;command;ios::DirSlotN;dir /all bootflash:
+cisco;command;ios::DirSlotN;dir /all slot0:
+cisco;command;ios::DirSlotN;dir /all disk0:
+cisco;command;ios::DirSlotN;dir /all slot1:
+cisco;command;ios::DirSlotN;dir /all disk1:
+cisco;command;ios::DirSlotN;dir /all slot2:
+cisco;command;ios::DirSlotN;dir /all disk2:
+cisco;command;ios::DirSlotN;dir /all harddisk:
+cisco;command;ios::DirSlotN;dir /all harddiska:
+cisco;command;ios::DirSlotN;dir /all harddiskb:
+cisco;command;ios::DirSlotN;dir /all sup-bootdisk:
+cisco;command;ios::DirSlotN;dir /all sup-bootflash:
+cisco;command;ios::DirSlotN;dir /all sup-microcode:
+cisco;command;ios::DirSlotN;dir /all slavenvram:
+cisco;command;ios::DirSlotN;dir /all slavebootflash:
+cisco;command;ios::DirSlotN;dir /all slaveslot0:
+cisco;command;ios::DirSlotN;dir /all slavedisk0:
+cisco;command;ios::DirSlotN;dir /all slaveslot1:
+cisco;command;ios::DirSlotN;dir /all slavedisk1:
+cisco;command;ios::DirSlotN;dir /all slaveslot2:
+cisco;command;ios::DirSlotN;dir /all slavedisk2:
+cisco;command;ios::DirSlotN;dir /all slavesup-bootflash:
+cisco;command;ios::DirSlotN;dir /all sec-nvram:
+cisco;command;ios::DirSlotN;dir /all sec-bootflash:
+cisco;command;ios::DirSlotN;dir /all sec-slot0:
+cisco;command;ios::DirSlotN;dir /all sec-disk0:
+cisco;command;ios::DirSlotN;dir /all sec-slot1:
+cisco;command;ios::DirSlotN;dir /all sec-disk1:
+cisco;command;ios::DirSlotN;dir /all sec-slot2:
+cisco;command;ios::DirSlotN;dir /all sec-disk2:
+cisco;command;ios::ShowContAll;show controllers
+cisco;command;ios::ShowContCbus;show controllers cbus
+cisco;command;ios::ShowDiagbus;show diagbus
+cisco;command;ios::ShowDiag;show diag
+cisco;command;ios::ShowCapture;show capture
+cisco;command;ios::ShowModule;show module
+cisco;command;ios::ShowSpeVersion;show spe version
+cisco;command;ios::ShowC7200;show c7200
+cisco;command;ios::ShowInventory;show inventory raw
+cisco;command;ios::ShowVTP;show vtp status
+cisco;command;ios::ShowVLAN;show vlan
+cisco;command;ios::ShowVLAN;show vlan-switch
+cisco;command;ios::ShowDebug;show debug
+cisco;command;ios::ShowShun;show shun
+cisco;command;ios::WriteTerm;more system;running-config
+cisco;command;ios::WriteTerm;show running-config view full
+cisco;command;ios::WriteTerm;show running-config
+cisco;command;ios::WriteTerm;write term
 #
-cisco-nx:script:nxrancid
+cisco-nx;script;nxrancid
 #
-cisco-xr:script:xrrancid
-#
+<<<<<<< .working
 compass:script:comprancid
 compass:login:complogin
 compass;module;eos
@@ -39,53 +105,76 @@ compass;command;eos::ShowVersion;show inventory
 compass;command;eos::ShowVersion;show configuration detail
 #
 css:script:cssrancid
+=======
+cisco-xr;script;xrrancid
+>>>>>>> .merge-right.r2565
 #
-enterasys:script:rivrancid
+css;script;cssrancid
 #
-erx:script:jerancid
+enterasys;script;rivrancid
 #
-extreme:script:xrancid
+erx;script;jerancid
 #
-ezt3:script:erancid
+extreme;script;xrancid
 #
-f5:script:f5rancid
+ezt3;script;erancid
 #
-force10:script:f10rancid
+f5;script;f5rancid
 #
-fortigate:script:fnrancid
+force10;script;f10rancid
 #
-foundry:script:francid
+fortigate;script;fnrancid
 #
-hitachi:script:htrancid
+foundry;script;francid
 #
-hp:script:hrancid
+hitachi;script;htrancid
 #
-juniper:script:jrancid
-juniper:login:jlogin
-juniper:command:ShowVersion:show version
+hp;script;hrancid
 #
-mikrotik:script:mtrancid
+juniper;script;grancid
+juniper;login;jlogin
+juniper;module;junos
+juniper;command;junos::ShowChassisClocks;show chassis clocks
+juniper;command;junos::ShowChassisEnvironment;show chassis environment
+juniper;command;junos::ShowChassisFirmware;show chassis firmware
+juniper;command;junos::ShowChassisFpcDetail;show chassis fpc detail
+juniper;command;junos::ShowChassisHardware;show chassis hardware detail
+juniper;command;junos::ShowChassisRoutingEngine;show chassis routing-engine
+juniper;command;junos::ShowChassisSCB;show chassis scb
+juniper;command;junos::ShowChassisSCB;show chassis sfm detail
+juniper;command;junos::ShowChassisSCB;show chassis ssb
+juniper;command;junos::ShowChassisSCB;show chassis feb detail
+juniper;command;junos::ShowChassisSCB;show chassis feb
+juniper;command;junos::ShowChassisSCB;show chassis cfeb
+juniper;command;junos::ShowChassisAlarms;show chassis alarms
+juniper;command;junos::ShowSystemLicense;show system license
+juniper;command;junos::ShowSystemBootMessages;show system boot-messages
+juniper;command;junos::ShowSystemCoreDumps;show system core-dumps
+juniper;command;junos::ShowVersion;show version detail
+juniper;command;junos::ShowConfiguration;show configuration
 #
-mrtd:script:mrancid
+mikrotik;script;mtrancid
 #
-mrv:script:mrvrancid
+mrtd;script;mrancid
 #
-netopia:script:trancid
+mrv;script;mrvrancid
 #
-netscaler:script:nsrancid
+netopia;script;trancid
 #
-netscreen:script:nrancid
+netscaler;script;nsrancid
 #
-procket:script:prancid
+netscreen;script;nrancid
 #
-redback:script:rrancid
+procket;script;prancid
 #
-riverstone:script:rivrancid
+redback;script;rrancid
 #
-smc:script:srancid
+riverstone;script;rivrancid
 #
-tnt:script:tntrancid
+smc;script;srancid
 #
-xirrus:script:xirancid
+tnt;script;tntrancid
 #
-zebra:script:zrancid
+xirrus;script;xirancid
+#
+zebra;script;zrancid

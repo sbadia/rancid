@@ -55,15 +55,17 @@ man_nogen_MANS = agmrancid.1 alogin.1 anlogin.1 anrancid.1 arancid.1 \
 		cat5rancid.1 clogin.1 cloginrc.5 \
 		complogin.1 comprancid.1 \
 		control_rancid.1 cssrancid.1 elogin.1 \
-		erancid.1 f5rancid.1 f10rancid.1 flogin.1 fnlogin.1 fnrancid.1 \
-		francid.1 hlogin.1 hrancid.1 htlogin.1 htrancid.1 jerancid.1 \
-		jlogin.1 jrancid.1 mrancid.1 mrvlogin.1 mrvrancid.1 mtlogin.1 \
-		mtrancid.1 nlogin.1 nrancid.1 nslogin.1 nsrancid.1 nxrancid.1 \
-		par.1 prancid.1 rancid-cvs.1 rancid-run.1 rancid.1 \
+		erancid.1 f5rancid.1 f10rancid.1 flogin.1 fnlogin.1 \
+		fnrancid.1 francid.1 grancid.1 hlogin.1 hrancid.1 htlogin.1 \
+		htrancid.1 jerancid.1 jlogin.1 jrancid.1 mrancid.1 \
+		mrvlogin.1 mrvrancid.1 mtlogin.1 mtrancid.1 nlogin.1 \
+		nrancid.1 nslogin.1 nsrancid.1 nxrancid.1 par.1 prancid.1 \
+		rancid-cvs.1 rancid-run.1 rancid.1 \
 		rancid.types.base.5 rancid_intro.1 rivlogin.1 rivrancid.1 \
 		router.db.5 rrancid.1 srancid.1 tlogin.1 tntlogin.1 \
 		xilogin.1 xirancid.1 tntrancid.1 trancid.1 xrancid.1 \
-		xrrancid.1 zrancid.1
+		xrrancid.1 zrancid.1 \
+		rancid.3
 
 man_MANS = $(man_nogen_MANS) $(man_gen_MANS)
 
@@ -105,3 +107,8 @@ rancid.types.conf.5: Makefile $(srcdir)/rancid.types.conf.5.in
 	rm -f rancid.types.conf.5 rancid.types.conf.5.tmp; \
 	$(auto_edit) $(srcdir)/rancid.types.conf.5.in >rancid.types.conf.5.tmp; \
 	mv rancid.types.conf.5.tmp rancid.types.conf.5
+
+rancid.3: Makefile $(srcdir)/rancid.3.in
+	rm -f rancid.3 rancid.3.tmp; \
+	$(auto_edit) $(srcdir)/rancid.3.in >rancid.3.tmp; \
+	mv rancid.3.tmp rancid.3

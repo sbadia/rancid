@@ -38,7 +38,7 @@ POST_INSTALL = :
 NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
-subdir = etc
+subdir = lib
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/acinclude.m4 \
@@ -49,8 +49,6 @@ mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
 CONFIG_HEADER = $(top_builddir)/include/config.h
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
-SOURCES =
-DIST_SOURCES =
 am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
 am__vpath_adj = case $$p in \
     $(srcdir)/*) f=`echo "$$p" | sed "s|^$$srcdirstrip/||"`;; \
@@ -72,8 +70,37 @@ am__nobase_list = $(am__nobase_strip_setup); \
 am__base_list = \
   sed '$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;s/\n/ /g' | \
   sed '$$!N;$$!N;$$!N;$$!N;s/\n/ /g'
-am__installdirs = "$(DESTDIR)$(pkgdatadir)" "$(DESTDIR)$(sysconfdir)"
-DATA = $(pkgdata_DATA) $(sysconf_DATA)
+am__installdirs = "$(DESTDIR)$(pkglibdir)"
+LIBRARIES = $(pkglib_LIBRARIES)
+AR = ar
+ARFLAGS = cru
+arbor_pm_AR = $(AR) $(ARFLAGS)
+arbor_pm_LIBADD =
+arbor_pm_SOURCES = arbor.c
+arbor_pm_OBJECTS = arbor.$(OBJEXT)
+ios_pm_AR = $(AR) $(ARFLAGS)
+ios_pm_LIBADD =
+ios_pm_SOURCES = ios.c
+ios_pm_OBJECTS = ios.$(OBJEXT)
+junos_pm_AR = $(AR) $(ARFLAGS)
+junos_pm_LIBADD =
+junos_pm_SOURCES = junos.c
+junos_pm_OBJECTS = junos.$(OBJEXT)
+rancid_pm_AR = $(AR) $(ARFLAGS)
+rancid_pm_LIBADD =
+rancid_pm_SOURCES = rancid.c
+rancid_pm_OBJECTS = rancid.$(OBJEXT)
+DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)/include
+depcomp =
+am__depfiles_maybe =
+COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
+	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
+CCLD = $(CC)
+LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
+SOURCES = arbor.c ios.c junos.c rancid.c
+DIST_SOURCES = arbor.c ios.c junos.c rancid.c
+ETAGS = etags
+CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 ACLOCAL = @ACLOCAL@
 ADMINMAILPLUS = @ADMINMAILPLUS@
@@ -190,19 +217,15 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
+AUTOMAKE_OPTIONS = foreign no-dependencies
+pkglib_LIBRARIES = rancid.pm arbor.pm ios.pm junos.pm
+RANLIB = :
 
-#AUTOMAKE_OPTIONS=foreign no-dependencies
-AUTOMAKE_OPTIONS = foreign
-sysconf_DATA = rancid.types.base rancid.types.conf
-pkgdata_nogen = 
-pkgdata_gen = lg.conf.sample rancid.conf.sample
-pkgdata_DATA = $(pkgdata_nogen) $(pkgdata_gen)
-EXTRA_DIST = $(pkgdata_gen:%=%.in) $(pkgdata_nogen) $(sysconf_DATA)
-CLEANFILES = $(pkgdata_gen)
-@CONF_INSTALL_TRUE@DO_CONF_INSTALL = yes
+#EXTRA_DIST= lg.cgi.in lgform.cgi.in rancid-cvs.in rancid-fe.in rancid-run.in
+CLEANFILES = rancid $(pkglib_LIBRARIES)
 
 #clean:
-#	rm -f Makefile rancid.conf $(BIN_DATAS) $(BIN_PROGS)
+#	rm -f Makefile env $(BIN_DATAS) $(BIN_PROGS)
 
 # auto_edit does the autoconf variable substitution.  This allows the
 # substitution to have the full expansion of the variables, e.g.: $sysconfdir
@@ -211,21 +234,24 @@ CLEANFILES = $(pkgdata_gen)
 # This is a bit of a PITA, but is the method recommended by the autoconf
 # documentation.
 auto_edit = sed \
-	-e 's,@bindir\@,$(bindir),g' \
 	-e 's,@prefix\@,$(prefix),g' \
 	-e 's,@localstatedir\@,$(localstatedir),g' \
-	-e 's,@libdir\@,$(libdir),g' \
 	-e 's,@sysconfdir\@,$(sysconfdir),g' \
 	-e 's,@EXPECT_PATH\@,$(EXPECT_PATH),g' \
+	-e 's,@PERLV\@,$(PERLV),g' \
 	-e 's,@PERLV_PATH\@,$(PERLV_PATH),g' \
-	-e 's,@ENV_PATH\@,$(ENV_PATH),g' \
-	-e 's,@RCSSYS\@,$(RCSSYS),g' \
+	-e 's,@LG_PING_CMD\@,$(LG_PING_CMD),g' \
+	-e 's,@ADMINMAILPLUS\@,$(ADMINMAILPLUS),g' \
+	-e 's,@MAILPLUS\@,$(MAILPLUS),g' \
 	-e 's,@PACKAGE\@,$(PACKAGE),g' \
-	-e 's,@VERSION\@,$(VERSION),g'
+	-e 's,@SVN_FSTYPE\@,$(SVN_FSTYPE),g' \
+	-e 's,@VERSION\@,$(VERSION),g' \
+	-e 's,@COPYYEARS\@,$(COPYYEARS),g'
 
 all: all-am
 
 .SUFFIXES:
+.SUFFIXES: .c .o .obj
 $(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
@@ -235,9 +261,9 @@ $(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
 	      exit 1;; \
 	  esac; \
 	done; \
-	echo ' cd $(top_srcdir) && $(AUTOMAKE) --foreign etc/Makefile'; \
+	echo ' cd $(top_srcdir) && $(AUTOMAKE) --foreign lib/Makefile'; \
 	$(am__cd) $(top_srcdir) && \
-	  $(AUTOMAKE) --foreign etc/Makefile
+	  $(AUTOMAKE) --foreign lib/Makefile
 .PRECIOUS: Makefile
 Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	@case '$?' in \
@@ -256,52 +282,102 @@ $(top_srcdir)/configure:  $(am__configure_deps)
 $(ACLOCAL_M4):  $(am__aclocal_m4_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
 $(am__aclocal_m4_deps):
-install-pkgdataDATA: $(pkgdata_DATA)
+install-pkglibLIBRARIES: $(pkglib_LIBRARIES)
 	@$(NORMAL_INSTALL)
-	test -z "$(pkgdatadir)" || $(MKDIR_P) "$(DESTDIR)$(pkgdatadir)"
-	@list='$(pkgdata_DATA)'; test -n "$(pkgdatadir)" || list=; \
+	test -z "$(pkglibdir)" || $(MKDIR_P) "$(DESTDIR)$(pkglibdir)"
+	@list='$(pkglib_LIBRARIES)'; test -n "$(pkglibdir)" || list=; \
+	list2=; for p in $$list; do \
+	  if test -f $$p; then \
+	    list2="$$list2 $$p"; \
+	  else :; fi; \
+	done; \
+	test -z "$$list2" || { \
+	  echo " $(INSTALL_DATA) $$list2 '$(DESTDIR)$(pkglibdir)'"; \
+	  $(INSTALL_DATA) $$list2 "$(DESTDIR)$(pkglibdir)" || exit $$?; }
+	@$(POST_INSTALL)
+	@list='$(pkglib_LIBRARIES)'; test -n "$(pkglibdir)" || list=; \
 	for p in $$list; do \
-	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
-	  echo "$$d$$p"; \
-	done | $(am__base_list) | \
-	while read files; do \
-	  echo " $(INSTALL_DATA) $$files '$(DESTDIR)$(pkgdatadir)'"; \
-	  $(INSTALL_DATA) $$files "$(DESTDIR)$(pkgdatadir)" || exit $$?; \
+	  if test -f $$p; then \
+	    $(am__strip_dir) \
+	    echo " ( cd '$(DESTDIR)$(pkglibdir)' && $(RANLIB) $$f )"; \
+	    ( cd "$(DESTDIR)$(pkglibdir)" && $(RANLIB) $$f ) || exit $$?; \
+	  else :; fi; \
 	done
 
-uninstall-pkgdataDATA:
+uninstall-pkglibLIBRARIES:
 	@$(NORMAL_UNINSTALL)
-	@list='$(pkgdata_DATA)'; test -n "$(pkgdatadir)" || list=; \
+	@list='$(pkglib_LIBRARIES)'; test -n "$(pkglibdir)" || list=; \
 	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
 	test -n "$$files" || exit 0; \
-	echo " ( cd '$(DESTDIR)$(pkgdatadir)' && rm -f" $$files ")"; \
-	cd "$(DESTDIR)$(pkgdatadir)" && rm -f $$files
-install-sysconfDATA: $(sysconf_DATA)
-	@$(NORMAL_INSTALL)
-	test -z "$(sysconfdir)" || $(MKDIR_P) "$(DESTDIR)$(sysconfdir)"
-	@list='$(sysconf_DATA)'; test -n "$(sysconfdir)" || list=; \
-	for p in $$list; do \
-	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
-	  echo "$$d$$p"; \
-	done | $(am__base_list) | \
-	while read files; do \
-	  echo " $(INSTALL_DATA) $$files '$(DESTDIR)$(sysconfdir)'"; \
-	  $(INSTALL_DATA) $$files "$(DESTDIR)$(sysconfdir)" || exit $$?; \
-	done
+	echo " ( cd '$(DESTDIR)$(pkglibdir)' && rm -f "$$files" )"; \
+	cd "$(DESTDIR)$(pkglibdir)" && rm -f $$files
 
-uninstall-sysconfDATA:
-	@$(NORMAL_UNINSTALL)
-	@list='$(sysconf_DATA)'; test -n "$(sysconfdir)" || list=; \
-	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
-	test -n "$$files" || exit 0; \
-	echo " ( cd '$(DESTDIR)$(sysconfdir)' && rm -f" $$files ")"; \
-	cd "$(DESTDIR)$(sysconfdir)" && rm -f $$files
+clean-pkglibLIBRARIES:
+	-test -z "$(pkglib_LIBRARIES)" || rm -f $(pkglib_LIBRARIES)
+
+mostlyclean-compile:
+	-rm -f *.$(OBJEXT)
+
+distclean-compile:
+	-rm -f *.tab.c
+
+.c.o:
+	$(COMPILE) -c $<
+
+.c.obj:
+	$(COMPILE) -c `$(CYGPATH_W) '$<'`
+
+ID: $(HEADERS) $(SOURCES) $(LISP) $(TAGS_FILES)
+	list='$(SOURCES) $(HEADERS) $(LISP) $(TAGS_FILES)'; \
+	unique=`for i in $$list; do \
+	    if test -f "$$i"; then echo $$i; else echo $(srcdir)/$$i; fi; \
+	  done | \
+	  $(AWK) '{ files[$$0] = 1; nonempty = 1; } \
+	      END { if (nonempty) { for (i in files) print i; }; }'`; \
+	mkid -fID $$unique
 tags: TAGS
-TAGS:
 
+TAGS:  $(HEADERS) $(SOURCES)  $(TAGS_DEPENDENCIES) \
+		$(TAGS_FILES) $(LISP)
+	set x; \
+	here=`pwd`; \
+	list='$(SOURCES) $(HEADERS)  $(LISP) $(TAGS_FILES)'; \
+	unique=`for i in $$list; do \
+	    if test -f "$$i"; then echo $$i; else echo $(srcdir)/$$i; fi; \
+	  done | \
+	  $(AWK) '{ files[$$0] = 1; nonempty = 1; } \
+	      END { if (nonempty) { for (i in files) print i; }; }'`; \
+	shift; \
+	if test -z "$(ETAGS_ARGS)$$*$$unique"; then :; else \
+	  test -n "$$unique" || unique=$$empty_fix; \
+	  if test $$# -gt 0; then \
+	    $(ETAGS) $(ETAGSFLAGS) $(AM_ETAGSFLAGS) $(ETAGS_ARGS) \
+	      "$$@" $$unique; \
+	  else \
+	    $(ETAGS) $(ETAGSFLAGS) $(AM_ETAGSFLAGS) $(ETAGS_ARGS) \
+	      $$unique; \
+	  fi; \
+	fi
 ctags: CTAGS
-CTAGS:
+CTAGS:  $(HEADERS) $(SOURCES)  $(TAGS_DEPENDENCIES) \
+		$(TAGS_FILES) $(LISP)
+	list='$(SOURCES) $(HEADERS)  $(LISP) $(TAGS_FILES)'; \
+	unique=`for i in $$list; do \
+	    if test -f "$$i"; then echo $$i; else echo $(srcdir)/$$i; fi; \
+	  done | \
+	  $(AWK) '{ files[$$0] = 1; nonempty = 1; } \
+	      END { if (nonempty) { for (i in files) print i; }; }'`; \
+	test -z "$(CTAGS_ARGS)$$unique" \
+	  || $(CTAGS) $(CTAGSFLAGS) $(AM_CTAGSFLAGS) $(CTAGS_ARGS) \
+	     $$unique
 
+GTAGS:
+	here=`$(am__cd) $(top_builddir) && pwd` \
+	  && $(am__cd) $(top_srcdir) \
+	  && gtags -i $(GTAGS_ARGS) "$$here"
+
+distclean-tags:
+	-rm -f TAGS ID GTAGS GRTAGS GSYMS GPATH tags
 
 distdir: $(DISTFILES)
 	@srcdirstrip=`echo "$(srcdir)" | sed 's/[].[^$$\\*]/\\\\&/g'`; \
@@ -335,9 +411,9 @@ distdir: $(DISTFILES)
 	done
 check-am: all-am
 check: check-am
-all-am: Makefile $(DATA)
+all-am: Makefile $(LIBRARIES)
 installdirs:
-	for dir in "$(DESTDIR)$(pkgdatadir)" "$(DESTDIR)$(sysconfdir)"; do \
+	for dir in "$(DESTDIR)$(pkglibdir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
 install: install-am
@@ -368,11 +444,12 @@ maintainer-clean-generic:
 	@echo "it deletes files that may require special tools to rebuild."
 clean: clean-am
 
-clean-am: clean-generic mostlyclean-am
+clean-am: clean-generic clean-pkglibLIBRARIES mostlyclean-am
 
 distclean: distclean-am
 	-rm -f Makefile
-distclean-am: clean-am distclean-generic
+distclean-am: clean-am distclean-compile distclean-generic \
+	distclean-tags
 
 dvi: dvi-am
 
@@ -386,13 +463,13 @@ info: info-am
 
 info-am:
 
-install-data-am: install-data-local install-pkgdataDATA
+install-data-am:
 
 install-dvi: install-dvi-am
 
 install-dvi-am:
 
-install-exec-am: install-sysconfDATA
+install-exec-am: install-pkglibLIBRARIES
 
 install-html: install-html-am
 
@@ -420,7 +497,7 @@ maintainer-clean-am: distclean-am maintainer-clean-generic
 
 mostlyclean: mostlyclean-am
 
-mostlyclean-am: mostlyclean-generic
+mostlyclean-am: mostlyclean-compile mostlyclean-generic
 
 pdf: pdf-am
 
@@ -430,61 +507,49 @@ ps: ps-am
 
 ps-am:
 
-uninstall-am: uninstall-pkgdataDATA uninstall-sysconfDATA
+uninstall-am: uninstall-pkglibLIBRARIES
 
 .MAKE: install-am install-strip
 
-.PHONY: all all-am check check-am clean clean-generic distclean \
-	distclean-generic distdir dvi dvi-am html html-am info info-am \
-	install install-am install-data install-data-am \
-	install-data-local install-dvi install-dvi-am install-exec \
+.PHONY: CTAGS GTAGS all all-am check check-am clean clean-generic \
+	clean-pkglibLIBRARIES ctags distclean distclean-compile \
+	distclean-generic distclean-tags distdir dvi dvi-am html \
+	html-am info info-am install install-am install-data \
+	install-data-am install-dvi install-dvi-am install-exec \
 	install-exec-am install-html install-html-am install-info \
 	install-info-am install-man install-pdf install-pdf-am \
-	install-pkgdataDATA install-ps install-ps-am install-strip \
-	install-sysconfDATA installcheck installcheck-am installdirs \
-	maintainer-clean maintainer-clean-generic mostlyclean \
-	mostlyclean-generic pdf pdf-am ps ps-am uninstall uninstall-am \
-	uninstall-pkgdataDATA uninstall-sysconfDATA
+	install-pkglibLIBRARIES install-ps install-ps-am install-strip \
+	installcheck installcheck-am installdirs maintainer-clean \
+	maintainer-clean-generic mostlyclean mostlyclean-compile \
+	mostlyclean-generic pdf pdf-am ps ps-am tags uninstall \
+	uninstall-am uninstall-pkglibLIBRARIES
 
 
-install-data-local: all
-	@if test "$(DO_CONF_INSTALL)" = "yes"; then \
-	if test -f $(DESTDIR)$(sysconfdir)/rancid.conf ; then \
-	    echo ""; \
-	    echo "WARNING: *** $(DESTDIR)$(sysconfdir)/rancid.conf exists.  See "; \
-	    echo "         *** $(pkgdatadir)/rancid.conf.sample for new"; \
-	    echo "         *** examples."; \
-	    echo ""; \
-	else \
-	    $(INSTALL_DATA) rancid.conf.sample $(DESTDIR)$(sysconfdir)/rancid.conf; \
-	fi; \
-	if test -f $(DESTDIR)$(sysconfdir)/rancid.types.conf ; then \
-	    echo ""; \
-	    echo "WARNING: *** $(DESTDIR)$(sysconfdir)/rancid.types.conf exists."; \
-	    echo ""; \
-	else \
-	    $(INSTALL_DATA) rancid.types.conf $(DESTDIR)$(sysconfdir)/rancid.types.conf; \
-	fi; \
-	if test -f $(DESTDIR)$(sysconfdir)/lg.conf ; then \
-	    echo ""; \
-	    echo "WARNING: *** $(DESTDIR)$(sysconfdir)/lg.conf exists.  See "; \
-	    echo "         *** $(pkgdatadir)/lg.conf.sample for new"; \
-	    echo "         *** examples."; \
-	    echo ""; \
-	else \
-	    $(INSTALL_DATA) lg.conf.sample $(DESTDIR)$(sysconfdir)/lg.conf; \
-	fi; \
-	fi
+rancid.pm: Makefile $(srcdir)/rancid.pm.in
+	rm -f rancid.pm rancid.pm.tmp; \
+	$(auto_edit) $(srcdir)/rancid.pm.in >rancid.pm.tmp; \
+	chmod +x rancid.pm.tmp; \
+	mv rancid.pm.tmp rancid.pm
 
-lg.conf.sample: Makefile $(srcdir)/lg.conf.sample.in
-	rm -f lg.conf.sample lg.conf.sample.tmp; \
-	$(auto_edit) $(srcdir)/lg.conf.sample.in >lg.conf.sample.tmp; \
-	mv lg.conf.sample.tmp lg.conf.sample
+arbor.pm: Makefile $(srcdir)/arbor.pm.in
+	rm -f arbor.pm arbor.pm.tmp; \
+	$(auto_edit) $(srcdir)/arbor.pm.in >arbor.pm.tmp; \
+	chmod +x arbor.pm.tmp; \
+	mv arbor.pm.tmp arbor.pm
 
-rancid.conf.sample: Makefile $(srcdir)/rancid.conf.sample.in
-	rm -f rancid.conf.sample rancid.conf.sample.tmp; \
-	$(auto_edit) $(srcdir)/rancid.conf.sample.in >rancid.conf.sample.tmp; \
-	mv rancid.conf.sample.tmp rancid.conf.sample
+ios.pm: Makefile $(srcdir)/ios.pm.in
+	rm -f ios.pm ios.pm.tmp; \
+	$(auto_edit) $(srcdir)/ios.pm.in >ios.pm.tmp; \
+	chmod +x ios.pm.tmp; \
+	mv ios.pm.tmp ios.pm
+
+junos.pm: Makefile $(srcdir)/junos.pm.in
+	rm -f junos.pm junos.pm.tmp; \
+	$(auto_edit) $(srcdir)/junos.pm.in >junos.pm.tmp; \
+	chmod +x junos.pm.tmp; \
+	mv junos.pm.tmp junos.pm
+
+#$(bin_PROGRAMS) $(bin_SCRIPTS): ../include/version.h
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

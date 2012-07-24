@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in
 ## A Makefile.in is supplied, in case you do not have automake.
 
-## $Id$
+## $Id: Makefile.am 2481 2012-05-24 17:39:33Z heas $
 ##
 ## Copyright (c) 1997-2012 by Terrapin Communications, Inc.
 ## All rights reserved.
@@ -45,53 +45,19 @@
 #  The original looking glass software was written by Ed Kern, provided by
 #  permission and modified beyond recognition.
 
-#AUTOMAKE_OPTIONS=foreign no-dependencies
-AUTOMAKE_OPTIONS=foreign
+AUTOMAKE_OPTIONS=foreign no-dependencies
 
-sysconf_DATA= rancid.types.base rancid.types.conf
-pkgdata_nogen = 
-pkgdata_gen = lg.conf.sample rancid.conf.sample
-pkgdata_DATA = $(pkgdata_nogen) $(pkgdata_gen)
+pkglib_LIBRARIES = rancid.pm arbor.pm ios.pm junos.pm
+RANLIB= :
 
-EXTRA_DIST= $(pkgdata_gen:%=%.in) $(pkgdata_nogen) $(sysconf_DATA)
+#EXTRA_DIST= lg.cgi.in lgform.cgi.in rancid-cvs.in rancid-fe.in rancid-run.in
+##dist_bin_SCRIPTS= $(bin_SCRIPTS:%=%.in)
 
-CLEANFILES= $(pkgdata_gen)
-
-if CONF_INSTALL
-DO_CONF_INSTALL=yes
-endif
-
-install-data-local: all
-	@if test "$(DO_CONF_INSTALL)" = "yes"; then \
-	if test -f $(DESTDIR)$(sysconfdir)/rancid.conf ; then \
-	    echo ""; \
-	    echo "WARNING: *** $(DESTDIR)$(sysconfdir)/rancid.conf exists.  See "; \
-	    echo "         *** $(pkgdatadir)/rancid.conf.sample for new"; \
-	    echo "         *** examples."; \
-	    echo ""; \
-	else \
-	    $(INSTALL_DATA) rancid.conf.sample $(DESTDIR)$(sysconfdir)/rancid.conf; \
-	fi; \
-	if test -f $(DESTDIR)$(sysconfdir)/rancid.types.conf ; then \
-	    echo ""; \
-	    echo "WARNING: *** $(DESTDIR)$(sysconfdir)/rancid.types.conf exists."; \
-	    echo ""; \
-	else \
-	    $(INSTALL_DATA) rancid.types.conf $(DESTDIR)$(sysconfdir)/rancid.types.conf; \
-	fi; \
-	if test -f $(DESTDIR)$(sysconfdir)/lg.conf ; then \
-	    echo ""; \
-	    echo "WARNING: *** $(DESTDIR)$(sysconfdir)/lg.conf exists.  See "; \
-	    echo "         *** $(pkgdatadir)/lg.conf.sample for new"; \
-	    echo "         *** examples."; \
-	    echo ""; \
-	else \
-	    $(INSTALL_DATA) lg.conf.sample $(DESTDIR)$(sysconfdir)/lg.conf; \
-	fi; \
-	fi
+CLEANFILES= rancid
+CLEANFILES+= $(pkglib_LIBRARIES)
 
 #clean:
-#	rm -f Makefile rancid.conf $(BIN_DATAS) $(BIN_PROGS)
+#	rm -f Makefile env $(BIN_DATAS) $(BIN_PROGS)
 
 # auto_edit does the autoconf variable substitution.  This allows the
 # substitution to have the full expansion of the variables, e.g.: $sysconfdir
@@ -100,24 +66,42 @@ install-data-local: all
 # This is a bit of a PITA, but is the method recommended by the autoconf
 # documentation.
 auto_edit = sed \
-	-e 's,@bindir\@,$(bindir),g' \
 	-e 's,@prefix\@,$(prefix),g' \
 	-e 's,@localstatedir\@,$(localstatedir),g' \
-	-e 's,@libdir\@,$(libdir),g' \
 	-e 's,@sysconfdir\@,$(sysconfdir),g' \
 	-e 's,@EXPECT_PATH\@,$(EXPECT_PATH),g' \
+	-e 's,@PERLV\@,$(PERLV),g' \
 	-e 's,@PERLV_PATH\@,$(PERLV_PATH),g' \
-	-e 's,@ENV_PATH\@,$(ENV_PATH),g' \
-	-e 's,@RCSSYS\@,$(RCSSYS),g' \
+	-e 's,@LG_PING_CMD\@,$(LG_PING_CMD),g' \
+	-e 's,@ADMINMAILPLUS\@,$(ADMINMAILPLUS),g' \
+	-e 's,@MAILPLUS\@,$(MAILPLUS),g' \
 	-e 's,@PACKAGE\@,$(PACKAGE),g' \
-	-e 's,@VERSION\@,$(VERSION),g'
+	-e 's,@SVN_FSTYPE\@,$(SVN_FSTYPE),g' \
+	-e 's,@VERSION\@,$(VERSION),g' \
+	-e 's,@COPYYEARS\@,$(COPYYEARS),g'
 
-lg.conf.sample: Makefile $(srcdir)/lg.conf.sample.in
-	rm -f lg.conf.sample lg.conf.sample.tmp; \
-	$(auto_edit) $(srcdir)/lg.conf.sample.in >lg.conf.sample.tmp; \
-	mv lg.conf.sample.tmp lg.conf.sample
+rancid.pm: Makefile $(srcdir)/rancid.pm.in
+	rm -f rancid.pm rancid.pm.tmp; \
+	$(auto_edit) $(srcdir)/rancid.pm.in >rancid.pm.tmp; \
+	chmod +x rancid.pm.tmp; \
+	mv rancid.pm.tmp rancid.pm
 
-rancid.conf.sample: Makefile $(srcdir)/rancid.conf.sample.in
-	rm -f rancid.conf.sample rancid.conf.sample.tmp; \
-	$(auto_edit) $(srcdir)/rancid.conf.sample.in >rancid.conf.sample.tmp; \
-	mv rancid.conf.sample.tmp rancid.conf.sample
+arbor.pm: Makefile $(srcdir)/arbor.pm.in
+	rm -f arbor.pm arbor.pm.tmp; \
+	$(auto_edit) $(srcdir)/arbor.pm.in >arbor.pm.tmp; \
+	chmod +x arbor.pm.tmp; \
+	mv arbor.pm.tmp arbor.pm
+
+ios.pm: Makefile $(srcdir)/ios.pm.in
+	rm -f ios.pm ios.pm.tmp; \
+	$(auto_edit) $(srcdir)/ios.pm.in >ios.pm.tmp; \
+	chmod +x ios.pm.tmp; \
+	mv ios.pm.tmp ios.pm
+
+junos.pm: Makefile $(srcdir)/junos.pm.in
+	rm -f junos.pm junos.pm.tmp; \
+	$(auto_edit) $(srcdir)/junos.pm.in >junos.pm.tmp; \
+	chmod +x junos.pm.tmp; \
+	mv junos.pm.tmp junos.pm
+
+#$(bin_PROGRAMS) $(bin_SCRIPTS): ../include/version.h

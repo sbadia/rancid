@@ -44,10 +44,10 @@
 #
 #  RANCID - Really Awesome New Cisco confIg Differ
 #
-# usage: jerancid [-dlCV] [-f filename | hostname]
+# usage: jerancid [-dltCV] [-f filename | hostname]
 #
 use Getopt::Std;
-getopts('dflCV');
+getopts('dflt:CV');
 if ($opt_V) {
     print "@PACKAGE@ @VERSION@\n";
     exit(0);
@@ -589,9 +589,6 @@ sub WriteTerm {
     return(0);
 }
 
-# dummy function
-sub DoNothing {print STDOUT;}
-
 # Main
 @commandtable = (
 	{'show version'		=> 'ShowVersion'},
@@ -692,7 +689,7 @@ TOP: while(<INPUT>) {
 	    $clean_run = 0;
 	    last TOP;
 	}
-	$rval = &{$commands{$cmd}};
+	$rval = &{$commands{$cmd}}(*INPUT, *OUTPUT, $cmd);
 	delete($commands{$cmd});
 	if ($rval == -1) {
 	    $clean_run = 0;

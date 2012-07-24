@@ -45,10 +45,10 @@
 #
 #  RANCID - Really Awesome New Cisco confIg Differ
 #
-# usage: tntrancid [-dlCV] [-f filename | hostname]
+# usage: tntrancid [-dltCV] [-f filename | hostname]
 #
 use Getopt::Std;
-getopts('dflCV');
+getopts('dflt:CV');
 if ($opt_V) {
     print "@PACKAGE@ @VERSION@\n";
     exit(0);
@@ -205,11 +205,6 @@ $found_end = 1;
 print STDOUT "$found_end = found_end at end test\n";
 
 
-
-
-# dummy function
-sub DoNothing {print STDOUT;}
-
 # Main
 @commandtable = (
 	{'save con'		=> 'SaveConf'}
@@ -300,7 +295,7 @@ TOP: while(<INPUT>) {
 	    $clean_run = 0;
 	    last TOP;
 	}
-	$rval = &{$commands{$cmd}};
+	$rval = &{$commands{$cmd}}(*INPUT, *OUTPUT, $cmd);
 	delete($commands{$cmd});
 	if ($rval == -1) {
 	    printf STDERR "rval = -1\n" if ($debug);

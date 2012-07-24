@@ -1,6 +1,6 @@
 #! @PERLV_PATH@
 ##
-## $Id: xirancid.in 2246 2010-09-08 01:36:07Z heas $
+## $Id$
 ##
 ## @PACKAGE@ @VERSION@
 ## Copyright (c) @COPYYEARS@ by Terrapin Communications, Inc.
@@ -39,128 +39,75 @@
 ## CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ## ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 ## POSSIBILITY OF SUCH DAMAGE.
-# 
-# hacked version of Hank's rancid - this one tries to deal with Xirrus arrays.
 #
-#  RANXID - Really Awesome New Xirrus confIg Differ
+#  RANCID - Really Awesome New Cisco confIg Differ
 #
-# usage: xirancid [-dltCV] [-f filename | hostname]
+#  grancid - generalized rancid module; command schedule is derived from the
+#	     rancid.{base,types}.conf configurations.
 #
+# usage: grancid [-dltCV] [-f filename | hostname]
+#
+use 5.005;
+use strict 'vars';
+use warnings;
+no warnings 'uninitialized';
+use Exporter;
 use Getopt::Std;
 getopts('dflt:CV');
-if ($opt_V) {
-    print "@PACKAGE@ @VERSION@\n";
-    exit(0);
+BEGIN {
+    push(@INC, "/home/heas/rancid/lib");
 }
-$log = $opt_l;
-$debug = $opt_d;
-$file = $opt_f;
-$host = $ARGV[0];
-$clean_run = 0;
-$timeo = 90;				# xilogin timeout in seconds
+use rancid;
+our @ISA = qw(Exporter rancid);
 
-my(@commandtable, %commands, @commands);# command lists
-
-# This routine is used to print out the router configuration
-sub ProcessHistory {
-    my($new_hist_tag,$new_command,$command_string,@string) = (@_);
-    if ((($new_hist_tag ne $hist_tag) || ($new_command ne $command))
-	&& scalar(%history)) {
-	print eval "$command \%history";
-	undef %history;
-    }
-    if (($new_hist_tag) && ($new_command) && ($command_string)) {
-	if ($history{$command_string}) {
-	    $history{$command_string} = "$history{$command_string}@string";
-	} else {
-	    $history{$command_string} = "@string";
-	}
-    } elsif (($new_hist_tag) && ($new_command)) {
-	$history{++$#history} = "@string";
-    } else {
-	print "@string";
-    }
-    $hist_tag = $new_hist_tag;
-    $command = $new_command;
-    1;
+# basic initialization
+rancidinit();
+# load device type spec, build @commandtable and load modules
+if (loadtype($devtype)) {
+    die "Couldn't load device type spec for $rancid::devtype\n";
+}
+if (! defined($lscript)) {
+    die "login script not defined for device type $rancid::devtype\n";
 }
 
-# This routine parses "show config"
-sub ShowConfig {
-    print STDERR "    In ShowConfig: $_\n" if ($debug);
-
-    while (<INPUT>) {
-	tr/\015//d;
-	last if (/^$prompt/);
-	next if (/^(\s*|\s*$cmd\s*)$/);
-	ProcessHistory("","","","$_");
-    }
-    return(0);
-}
-
-# Main
-@commandtable = (
-	{'show boot-env' 			=> "ShowConfig"},
-	{'show running-config inc-defaults'	=> "ShowConfig"}
-);
-# Use an array to preserve the order of the commands and a hash for mapping
-# commands to the subroutine and track commands that have been completed.
-@commands = map(keys(%$_), @commandtable);
-%commands = map(%$_, @commandtable);
-
-$xirrus_cmds=join(";",@commands);
-$cmds_regexp = join("|", map quotemeta($_), @commands);
-
-if (length($host) == 0) {
-    if ($file) {
-	print(STDERR "Too few arguments: file name required\n");
-	exit(1);
-    } else {
-	print(STDERR "Too few arguments: host name required\n");
-	exit(1);
-    }
-}
-if ($opt_C) {
-    print "xilogin -t $timeo -c\'$xirrus_cmds\' $host\n";
-    exit(0);
-}
 open(OUTPUT,">$host.new") || die "Can't open $host.new for writing: $!\n";
 select(OUTPUT);
-# make OUTPUT unbuffered if debugging
-if ($debug) { $| = 1; }
+eval($module ."::init();") && die "${module}::init failed: $@\n";
 
 if ($file) {
     print STDERR "opening file $host\n" if ($debug);
     print STDOUT "opening file $host\n" if ($log);
     open(INPUT,"<$host") || die "open failed for $host: $!\n";
 } else {
-    print STDERR "executing xilogin -t $timeo -c\"$xirrus_cmds\" $host\n" if ($debug);
-    print STDOUT "executing xilogin -t $timeo -c\"$xirrus_cmds\" $host\n" if ($log);
-    if (defined($ENV{NOPIPE})) {
-	system "xilogin -t $timeo -c \"$xirrus_cmds\" $host </dev/null > $host.raw 2>&1" || die "xilogin failed for $host: $!\n";
-	open(INPUT, "< $host.raw") || die "xilogin failed for $host: $!\n";
+    print STDERR "executing $lscript -t $timeo -c\"$commandstr\" $host\n" if ($debug);
+    print STDOUT "executing $lscript -t $timeo -c\"$commandstr\" $host\n" if ($log);
+    if (defined($ENV{NOPIPE}) && $ENV{NOPIPE} =~ /^YES/i) {
+	system "$lscript -t $timeo -c \"$commandstr\" $host </dev/null > $host.raw 2>&1" || die "clogin failed for $host: $!\n";
+	open(INPUT, "< $host.raw") || die "clogin failed for $host: $!\n";
     } else {
-	open(INPUT,"xilogin -t $timeo -c \"$xirrus_cmds\" $host </dev/null |") || die "xilogin failed for $host: $!\n";
+	open(INPUT,"$lscript -t $timeo -c \"$commandstr\" $host </dev/null |") || die "clogin failed for $host: $!\n";
     }
 }
 
-ProcessHistory("","","","!RANCID-CONTENT-TYPE: xirrus\n!\n");
 TOP: while(<INPUT>) {
+    my($cmd, $rval);
     tr/\015//d;
-    if (/^end/)  {
-	$clean_run=1;
-        last;
+    if (/[>#]\s?exit$/) {
+	$clean_run = 1;
+	last;
     }
     if (/^Error:/) {
-	print STDOUT ("$host xilogin error: $_");
-	print STDERR ("$host xilogin error: $_") if ($debug);
-	$clean_run=0;
+	print STDOUT ("$host clogin error: $_");
+	print STDERR ("$host clogin error: $_") if ($debug);
+	$clean_run = 0;
 	last;
     }
     while (/[>#]\s*($cmds_regexp)\s*$/) {
 	$cmd = $1;
 	if (!defined($prompt)) {
-	    $prompt = ($_ =~ /^([^:]+:)/)[0];
+	    $prompt = ($_ =~ /^([^#>]+[#>])/)[0];
+	    $prompt =~ s/([][}{)(\\])/\\$1/g;
+	    print STDERR ("PROMPT MATCH: $prompt\n") if ($debug);
 	}
 	print STDERR ("HIT COMMAND:$_") if ($debug);
 	if (! defined($commands{$cmd})) {
@@ -176,24 +123,24 @@ TOP: while(<INPUT>) {
 	}
     }
 }
-print STDOUT "Done $logincmd: $_\n" if ($log);
+print STDOUT "Done $lscript: $_\n" if ($log);
 # Flush History
 ProcessHistory("","","","");
 # Cleanup
 close(INPUT);
 close(OUTPUT);
 
-if (defined($ENV{NOPIPE})) {
+if (defined($ENV{NOPIPE}) && $ENV{NOPIPE} =~ /^YES/i) {
     unlink("$host.raw") if (! $debug);
 }
 
 # check for completeness
-if (scalar(%commands) || !$clean_run ) {
+if (scalar(%commands) || !$clean_run || !$found_end) {
     if (scalar(%commands)) {
 	printf(STDOUT "$host: missed cmd(s): %s\n", join(',', keys(%commands)));
 	printf(STDERR "$host: missed cmd(s): %s\n", join(',', keys(%commands))) if ($debug);
     }
-    if (!$clean_run ) {
+    if (!$clean_run || !$found_end) {
 	print STDOUT "$host: End of run not found\n";
 	print STDERR "$host: End of run not found\n" if ($debug);
 	system("/usr/bin/tail -1 $host.new");

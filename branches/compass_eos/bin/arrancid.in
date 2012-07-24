@@ -46,10 +46,10 @@
 # Arista mode is better.
 # Initial version by Bill Fenner <fenner@aristanetworks.com>
 #
-# usage: arrancid [-dlCV] [-f filename | hostname]
+# usage: arrancid [-dltCV] [-f filename | hostname]
 #
 use Getopt::Std;
-getopts('dflCV');
+getopts('dflt:CV');
 if ($opt_V) {
     print "@PACKAGE@ @VERSION@\n";
     exit(0);
@@ -304,6 +304,21 @@ sub ShowFlash {
         # persist changes constantly if you're running ntp, so
         # skip its updates.
         /\spersist$/ && next;
+
+	if (/.*\((\d+) bytes free\)/) {  
+	    my($tmp) = $1;
+	    if ($tmp >= (1024 * 1024 * 1024)) {   
+		$tmp = int($tmp / (1024 * 1024 * 1024));
+		s/$1 bytes free/$tmp GB free/;
+	    } elsif ($tmp >= (1024 * 1024)) {  
+		$tmp = int($tmp / (1024 * 1024));
+		s/$1 bytes free/$tmp MB free/;
+	    } else {
+		$tmp = int($tmp / 1024);
+		s/$1 bytes free/$tmp KB free/;
+	    }
+	}
+
 	ProcessHistory("FLASH","","","!Flash: $_");
     }
     ProcessHistory("","","","!\n");
@@ -615,9 +630,6 @@ sub WriteTerm {
     return(0);
 }
 
-# dummy function
-sub DoNothing {print STDOUT;}
-
 # Main
 @commandtable = (
 	{'show version'			=> 'ShowVersion'},
@@ -716,7 +728,7 @@ TOP: while(<INPUT>) {
 	    $clean_run = 0;
 	    last TOP;
 	}
-	$rval = &{$commands{$cmd}};
+	$rval = &{$commands{$cmd}}(*INPUT, *OUTPUT, $cmd);
 	delete($commands{$cmd});
 	if ($rval == -1) {
 	    $clean_run = 0;

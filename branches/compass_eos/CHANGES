@@ -18,6 +18,37 @@
 
 	anrancid: add arbor networks module
 
+	*rancid: pass (INPUT,OUTPUT,$cmd) to filter functions
+
+	rancid::base renamed rancid
+
+	Add lib/ and bin/grancid to the build process
+
+	*rancid: add -t option for rancid-fe to pass the device type from
+	router.db.  Mainly for grancid, but pass it to all scripts.
+
+	router.db,rancid.types.*: change field separator to ';' (semi-colon) to
+	allow for IPv6 addresses in router.db and avoid conflict with :s in
+	device commands and perl module names
+
+	*rancid: few variable name changes to match rancid::base
+
+	arrancid: summarize flash remaining space
+
+	jrancid: show version can terminate abnormally when unable to
+	communicate with a daemon
+
+	nxrancid: improve power supply wattage filtering further
+
+	nxrancid: improve power supply wattage filtering - Zenon Mousmoulas
+
+	jlogin: set cli screen-width to prevent cli from mucking with the
+	command line in irritating ways - Jay Borkenhagen
+
+	xrrancid: adjust for ARS9k RSP440 show version format
+
+	anrancid: add arbor networks module
+
 	*rancid: add the -C option
 
 	rivlogin,jlogin,fnlogin: command-line option clean-up
@@ -34,7 +65,8 @@
 	rancid: remove LISP-MapCache files; fix date removal for dhcp &
 	vlan.dat files in flash.
 
-	nxrancid: delete the line with the "^" from the "Invalid command at" errors.
+	nxrancid: delete the line with the "^" from the "Invalid command at"
+	errors.
 
 	hlogin: add "username" to prompt match for Cisco ACS 5.3 - Skye Hagen
 

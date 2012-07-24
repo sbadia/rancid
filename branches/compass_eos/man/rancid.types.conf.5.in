@@ -1,8 +1,8 @@
 .\"
-.\" $Id: rancid.types.conf.5.in 2096 2009-06-17 21:49:46Z heas $
+.\" $Id$
 .\"
 .hys 50
-.TH "rancid.types.conf" "5" "1 March 2012"
+.TH "rancid.types.conf" "5" "18 July 2012"
 .SH NAME
 rancid.types.conf \- rancid device type configuration file
 .SH DESCRIPTION
@@ -32,20 +32,24 @@ One device is listed per-line, where the syntax is one of:
 .PP
 .in +1i
 .nf
-<device_type>:login:<login_program>
-<device_type>:command:<filter_function>:<device_command_string>
-<device_type>:script:<rancid_script> XXX temporary knob?
-<device_type>:postscript:<rancid_script> XXX temporary knob?
+<device_type>;login;<login_program>
+<device_type>;command;<filter_function>;<device_command_string>
+<device_type>;module;<perl_module_name>
+<device_type>;prescript;<rancid_script> XXX temporary knob?
+<device_type>;postscript;<rancid_script> XXX temporary knob?
+<device_type>;script;<rancid_script>
 .fi
 .in -1i
 .PP
 For example:
 .in +1i
 .nf
-cisco:login:clogin
-cisco:command:ShowVersion:show version
-juniper:login:/usr/local/bin/jlogin
-juniper:command:ShowVersion:show version
+cisco;login;clogin
+cisco;module;rancid::ios
+cisco;command;ShowVersion;show version
+juniper;login;/usr/local/bin/jlogin
+juniper;module;rancid::junos
+juniper;command;ShowVersion;show version
 .fi
 .in -1i
 .PP
@@ -70,4 +74,5 @@ Configuration file described here.
 .BR rancid (1),
 .BR rancid-run (1),
 .BR router.db (5),
+.BR rancid_base (3)
 .\"
