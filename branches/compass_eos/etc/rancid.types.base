@@ -29,6 +29,14 @@ cisco-xr:script:xrrancid
 #
 compass:script:comprancid
 compass:login:complogin
+compass;module;eos
+compass;command;eos::ShowVersion;show version
+compass;command;eos::ShowVersion;show system build-parameters
+compass;command;eos::ShowVersion;show system software images 
+compass;command;eos::ShowVersion;show system software packages
+compass;command;eos::ShowVersion;show system module
+compass;command;eos::ShowVersion;show inventory
+compass;command;eos::ShowVersion;show configuration detail
 #
 css:script:cssrancid
 #
