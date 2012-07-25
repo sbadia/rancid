@@ -92,7 +92,8 @@ cisco;command;ios::WriteTerm;write term
 #
 cisco-nx;script;nxrancid
 #
-<<<<<<< .working
+cisco-xr;script;xrrancid
+#
 compass:script:comprancid
 compass:login:complogin
 compass;module;eos
@@ -103,11 +104,6 @@ compass;command;eos::ShowVersion;show system software packages
 compass;command;eos::ShowVersion;show system module
 compass;command;eos::ShowVersion;show inventory
 compass;command;eos::ShowVersion;show configuration detail
-#
-css:script:cssrancid
-=======
-cisco-xr;script;xrrancid
->>>>>>> .merge-right.r2565
 #
 css;script;cssrancid
 #
