@@ -94,8 +94,8 @@ cisco-nx;script;nxrancid
 #
 cisco-xr;script;xrrancid
 #
-compass:script:comprancid
-compass:login:complogin
+compass;script;comprancid
+compass;login;complogin
 compass;module;eos
 compass;command;eos::ShowVersion;show version
 compass;command;eos::ShowVersion;show system build-parameters
