@@ -78,6 +78,10 @@ arbor_pm_AR = $(AR) $(ARFLAGS)
 arbor_pm_LIBADD =
 arbor_pm_SOURCES = arbor.c
 arbor_pm_OBJECTS = arbor.$(OBJEXT)
+eos_pm_AR = $(AR) $(ARFLAGS)
+eos_pm_LIBADD =
+eos_pm_SOURCES = eos.c
+eos_pm_OBJECTS = eos.$(OBJEXT)
 ios_pm_AR = $(AR) $(ARFLAGS)
 ios_pm_LIBADD =
 ios_pm_SOURCES = ios.c
@@ -97,8 +101,8 @@ COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 CCLD = $(CC)
 LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
-SOURCES = arbor.c ios.c junos.c rancid.c
-DIST_SOURCES = arbor.c ios.c junos.c rancid.c
+SOURCES = arbor.c eos.c ios.c junos.c rancid.c
+DIST_SOURCES = arbor.c eos.c ios.c junos.c rancid.c
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -218,7 +222,7 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 AUTOMAKE_OPTIONS = foreign no-dependencies
-pkglib_LIBRARIES = rancid.pm arbor.pm ios.pm junos.pm
+pkglib_LIBRARIES = rancid.pm arbor.pm eos.pm ios.pm junos.pm
 RANLIB = :
 
 #EXTRA_DIST= lg.cgi.in lgform.cgi.in rancid-cvs.in rancid-fe.in rancid-run.in
@@ -314,6 +318,10 @@ uninstall-pkglibLIBRARIES:
 
 clean-pkglibLIBRARIES:
 	-test -z "$(pkglib_LIBRARIES)" || rm -f $(pkglib_LIBRARIES)
+eos.pm: $(eos_pm_OBJECTS) $(eos_pm_DEPENDENCIES) 
+	-rm -f eos.pm
+	$(eos_pm_AR) eos.pm $(eos_pm_OBJECTS) $(eos_pm_LIBADD)
+	$(RANLIB) eos.pm
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)

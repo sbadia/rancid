@@ -48,7 +48,8 @@ DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in \
 	$(srcdir)/atrancid.in $(srcdir)/avologin.in \
 	$(srcdir)/avorancid.in $(srcdir)/blogin.in \
 	$(srcdir)/brancid.in $(srcdir)/cat5rancid.in \
-	$(srcdir)/clogin.in $(srcdir)/control_rancid.in \
+	$(srcdir)/clogin.in $(srcdir)/complogin.in \
+	$(srcdir)/comprancid.in $(srcdir)/control_rancid.in \
 	$(srcdir)/cssrancid.in $(srcdir)/elogin.in \
 	$(srcdir)/erancid.in $(srcdir)/f10rancid.in \
 	$(srcdir)/f5rancid.in $(srcdir)/flogin.in $(srcdir)/fnlogin.in \
@@ -77,13 +78,13 @@ mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
 CONFIG_HEADER = $(top_builddir)/include/config.h
 CONFIG_CLEAN_FILES = control_rancid par agmrancid alogin arancid \
 	anlogin anrancid arrancid atrancid avologin avorancid blogin \
-	brancid cat5rancid clogin rancid cssrancid elogin erancid \
-	f5rancid f10rancid flogin francid fnlogin fnrancid grancid \
-	hlogin hrancid htlogin htrancid jlogin jrancid jerancid \
-	mrancid mrvlogin mrvrancid mtrancid mtlogin nlogin nrancid \
-	nslogin nsrancid nxrancid prancid rivlogin rivrancid rrancid \
-	srancid tlogin tntlogin tntrancid trancid xilogin xirancid \
-	xrancid xrrancid zrancid
+	brancid cat5rancid clogin rancid complogin comprancid \
+	cssrancid elogin erancid f5rancid f10rancid flogin francid \
+	fnlogin fnrancid grancid hlogin hrancid htlogin htrancid \
+	jlogin jrancid jerancid mrancid mrvlogin mrvrancid mtrancid \
+	mtlogin nlogin nrancid nslogin nsrancid nxrancid prancid \
+	rivlogin rivrancid rrancid srancid tlogin tntlogin tntrancid \
+	trancid xilogin xirancid xrancid xrrancid zrancid
 CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)" "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
@@ -257,8 +258,10 @@ bin_SCRIPTS = agmrancid alogin anlogin anrancid arancid arrancid \
 	mtlogin mtrancid nlogin nrancid nslogin nsrancid nxrancid par \
 	prancid rancid-fe rancid rivlogin rivrancid rrancid srancid \
 	tlogin tntlogin tntrancid trancid xilogin xirancid xrancid \
-	xrrancid zrancid lg.cgi lgform.cgi rancid-cvs rancid-fe \
-	rancid-run
+	xrrancid zrancid complogin comprancid lg.cgi lgform.cgi \
+	rancid-cvs rancid-fe rancid-run
+# XXX hack for the grancid to get pkglibdir, see corresponding XXX below
+bin_in = grancid.in
 EXTRA_DIST = lg.cgi.in lgform.cgi.in rancid-cvs.in rancid-fe.in rancid-run.in
 #dist_bin_SCRIPTS= $(bin_SCRIPTS:%=%.in)
 CLEANFILES = lg.cgi lgform.cgi rancid-cvs rancid-fe rancid-run
@@ -282,6 +285,7 @@ YFLAGS = -d
 auto_edit = sed \
 	-e 's,@prefix\@,$(prefix),g' \
 	-e 's,@localstatedir\@,$(localstatedir),g' \
+	-e 's,@pkglibdir\@,$(pkglibdir),g' \
 	-e 's,@sysconfdir\@,$(sysconfdir),g' \
 	-e 's,@EXPECT_PATH\@,$(EXPECT_PATH),g' \
 	-e 's,@PERLV\@,$(PERLV),g' \
@@ -359,6 +363,10 @@ cat5rancid: $(top_builddir)/config.status $(srcdir)/cat5rancid.in
 clogin: $(top_builddir)/config.status $(srcdir)/clogin.in
 	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@
 rancid: $(top_builddir)/config.status $(srcdir)/rancid.in
+	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@
+complogin: $(top_builddir)/config.status $(srcdir)/complogin.in
+	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@
+comprancid: $(top_builddir)/config.status $(srcdir)/comprancid.in
 	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@
 cssrancid: $(top_builddir)/config.status $(srcdir)/cssrancid.in
 	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@
@@ -739,6 +747,18 @@ uninstall-am: uninstall-binPROGRAMS uninstall-binSCRIPTS
 	tags uninstall uninstall-am uninstall-binPROGRAMS \
 	uninstall-binSCRIPTS
 
+
+# XXX this is the generic version for the rest of bin_scripts that comes from
+#     configure.in now.  perhaps change to use this.
+#$(bin_SCRIPTS): Makefile $(top_builddir)/config.status
+$(bin_in:%.in=%): Makefile $(top_builddir)/config.status
+	rm -f $@ $@.tmp; \
+	$(auto_edit) $(srcdir)/$@.in >$@.tmp; \
+	chmod +x $@.tmp; \
+	mv $@.tmp $@
+# XXX there must be a better way to produce these dependencies, perhaps in
+#     configure.
+grancid: grancid.in
 
 lg.cgi: Makefile $(srcdir)/lg.cgi.in
 	rm -f lg.cgi lg.cgi.tmp; \
