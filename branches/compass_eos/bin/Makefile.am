@@ -50,15 +50,16 @@ AUTOMAKE_OPTIONS=foreign
 
 bin_PROGRAMS = hpuifilter
 bin_SCRIPTS = agmrancid alogin anlogin anrancid arancid arrancid atrancid \
-	avologin avorancid blogin brancid cat5rancid clogin \
-	complogin comprancid \
-	control_rancid cssrancid \
-	elogin erancid f5rancid f10rancid flogin fnlogin fnrancid \
+	avologin avorancid blogin brancid cat5rancid clogin control_rancid \
+	cssrancid elogin erancid f5rancid f10rancid flogin fnlogin fnrancid \
 	francid grancid hlogin hrancid htlogin htrancid jerancid jlogin \
 	jrancid mrancid mrvlogin mrvrancid mtlogin mtrancid nlogin nrancid \
 	nslogin nsrancid nxrancid par prancid rancid-fe rancid rivlogin \
 	rivrancid rrancid srancid tlogin tntlogin tntrancid trancid xilogin \
-	xirancid xrancid xrrancid zrancid
+	xirancid xrancid xrrancid zrancid \
+        complogin comprancid
+# XXX hack for the grancid to get pkglibdir, see corresponding XXX below
+bin_in = grancid.in
 
 bin_SCRIPTS += lg.cgi lgform.cgi rancid-cvs rancid-fe rancid-run
 EXTRA_DIST= lg.cgi.in lgform.cgi.in rancid-cvs.in rancid-fe.in rancid-run.in
@@ -94,6 +95,7 @@ YFLAGS = -d
 auto_edit = sed \
 	-e 's,@prefix\@,$(prefix),g' \
 	-e 's,@localstatedir\@,$(localstatedir),g' \
+	-e 's,@pkglibdir\@,$(pkglibdir),g' \
 	-e 's,@sysconfdir\@,$(sysconfdir),g' \
 	-e 's,@EXPECT_PATH\@,$(EXPECT_PATH),g' \
 	-e 's,@PERLV\@,$(PERLV),g' \
@@ -105,6 +107,18 @@ auto_edit = sed \
 	-e 's,@SVN_FSTYPE\@,$(SVN_FSTYPE),g' \
 	-e 's,@VERSION\@,$(VERSION),g' \
 	-e 's,@COPYYEARS\@,$(COPYYEARS),g'
+
+# XXX this is the generic version for the rest of bin_scripts that comes from
+#     configure.in now.  perhaps change to use this.
+#$(bin_SCRIPTS): Makefile $(top_builddir)/config.status
+$(bin_in:%.in=%): Makefile $(top_builddir)/config.status
+	rm -f $@ $@.tmp; \
+	$(auto_edit) $(srcdir)/$@.in >$@.tmp; \
+	chmod +x $@.tmp; \
+	mv $@.tmp $@
+# XXX there must be a better way to produce these dependencies, perhaps in
+#     configure.
+grancid: grancid.in
 
 lg.cgi: Makefile $(srcdir)/lg.cgi.in
 	rm -f lg.cgi lg.cgi.tmp; \

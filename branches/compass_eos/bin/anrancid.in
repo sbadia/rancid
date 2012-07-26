@@ -45,10 +45,10 @@
 #
 #  RANCID - Really Awesome New Cisco confIg Differ
 #
-# usage: comprancid [-dlCV] [-f filename | hostname]
+# usage: comprancid [-dltCV] [-f filename | hostname]
 #
 use Getopt::Std;
-getopts('dflCV');
+getopts('dflt:CV');
 if ($opt_V) {
     print "@PACKAGE@ @VERSION@\n";
     exit(0);
@@ -59,7 +59,7 @@ $file = $opt_f;
 $host = $ARGV[0];
 $clean_run = 0;
 $found_end = 0;
-$timeo = 90;				# complogin timeout in seconds
+$timeo = 90;				# anlogin timeout in seconds
 
 my(@commandtable, %commands, @commands);# command lists
 my($aclsort) = ("ipsort");		# ACL sorting mode
@@ -272,9 +272,6 @@ sub RunCommand {
     return(0)
 }
 
-# dummy function
-sub DoNothing {print STDOUT;}
-
 # Main
 @commandtable = (
 	{'system version'		=> 'ShowVersion'},
@@ -286,7 +283,7 @@ sub DoNothing {print STDOUT;}
 @commands = map(keys(%$_), @commandtable);
 %commands = map(%$_, @commandtable);
 
-$cisco_cmds=join(";",@commands);
+$commandstr=join(";",@commands);
 $cmds_regexp=join("|",@commands);
 
 if (length($host) == 0) {
@@ -299,7 +296,7 @@ if (length($host) == 0) {
     }
 }
 if ($opt_C) {
-    print "complogin -t $timeo -c\'$cisco_cmds\' $host\n";
+    print "anlogin -t $timeo -c\'$commandstr\' $host\n";
     exit(0);
 }
 open(OUTPUT,">$host.new") || die "Can't open $host.new for writing: $!\n";
@@ -312,13 +309,13 @@ if ($file) {
     print STDOUT "opening file $host\n" if ($log);
     open(INPUT,"<$host") || die "open failed for $host: $!\n";
 } else {
-    print STDERR "executing anlogin -t $timeo -c\"$cisco_cmds\" $host\n" if ($debug);
-    print STDOUT "executing anlogin -t $timeo -c\"$cisco_cmds\" $host\n" if ($log);
+    print STDERR "executing anlogin -t $timeo -c\"$commandstr\" $host\n" if ($debug);
+    print STDOUT "executing anlogin -t $timeo -c\"$commandstr\" $host\n" if ($log);
     if (defined($ENV{NOPIPE})) {
-	system "anlogin -t $timeo -c \"$cisco_cmds\" $host </dev/null > $host.raw 2>&1" || die "anlogin failed for $host: $!\n";
+	system "anlogin -t $timeo -c \"$commandstr\" $host </dev/null > $host.raw 2>&1" || die "anlogin failed for $host: $!\n";
 	open(INPUT, "< $host.raw") || die "anlogin failed for $host: $!\n";
     } else {
-	open(INPUT,"anlogin -t $timeo -c \"$cisco_cmds\" $host </dev/null |") || die "anlogin failed for $host: $!\n";
+	open(INPUT,"anlogin -t $timeo -c \"$commandstr\" $host </dev/null |") || die "anlogin failed for $host: $!\n";
     }
 }
 
@@ -368,7 +365,7 @@ TOP: while(<INPUT>) {
 	    $clean_run = 0;
 	    last TOP;
 	}
-	$rval = &{$commands{$cmd}};
+	$rval = &{$commands{$cmd}}(*INPUT, *OUTPUT, $cmd);
 	delete($commands{$cmd});
 	if ($rval == -1) {
 	    $clean_run = 0;

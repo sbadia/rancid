@@ -55,7 +55,7 @@ use Exporter;
 use Getopt::Std;
 getopts('dflt:CV');
 BEGIN {
-    push(@INC, "/home/heas/rancid/lib");
+    push(@INC, "@pkglibdir@");
 }
 use rancid;
 our @ISA = qw(Exporter rancid);
@@ -136,7 +136,9 @@ if (defined($ENV{NOPIPE}) && $ENV{NOPIPE} =~ /^YES/i) {
 
 # check for completeness
 if (scalar(%commands) || !$clean_run || !$found_end) {
-    if (scalar(%commands)) {
+    if (scalar(%commands) eq $commandcnt) {
+	printf(STDERR "$host: missed cmd(s): all commands\n") if ($debug);
+    } elsif (scalar(%commands) eq $commandcnt) {
 	printf(STDOUT "$host: missed cmd(s): %s\n", join(',', keys(%commands)));
 	printf(STDERR "$host: missed cmd(s): %s\n", join(',', keys(%commands))) if ($debug);
     }
