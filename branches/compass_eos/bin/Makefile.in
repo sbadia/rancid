@@ -49,20 +49,19 @@ DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in \
 	$(srcdir)/avorancid.in $(srcdir)/blogin.in \
 	$(srcdir)/brancid.in $(srcdir)/cat5rancid.in \
 	$(srcdir)/clogin.in $(srcdir)/complogin.in \
-	$(srcdir)/comprancid.in $(srcdir)/control_rancid.in \
-	$(srcdir)/cssrancid.in $(srcdir)/elogin.in \
-	$(srcdir)/erancid.in $(srcdir)/f10rancid.in \
-	$(srcdir)/f5rancid.in $(srcdir)/flogin.in $(srcdir)/fnlogin.in \
-	$(srcdir)/fnrancid.in $(srcdir)/francid.in \
-	$(srcdir)/grancid.in $(srcdir)/hlogin.in $(srcdir)/hrancid.in \
-	$(srcdir)/htlogin.in $(srcdir)/htrancid.in \
-	$(srcdir)/jerancid.in $(srcdir)/jlogin.in $(srcdir)/jrancid.in \
-	$(srcdir)/mrancid.in $(srcdir)/mrvlogin.in \
-	$(srcdir)/mrvrancid.in $(srcdir)/mtlogin.in \
-	$(srcdir)/mtrancid.in $(srcdir)/nlogin.in $(srcdir)/nrancid.in \
-	$(srcdir)/nslogin.in $(srcdir)/nsrancid.in \
-	$(srcdir)/nxrancid.in $(srcdir)/par.in $(srcdir)/prancid.in \
-	$(srcdir)/rancid.in $(srcdir)/rivlogin.in \
+	$(srcdir)/control_rancid.in $(srcdir)/cssrancid.in \
+	$(srcdir)/elogin.in $(srcdir)/erancid.in \
+	$(srcdir)/f10rancid.in $(srcdir)/f5rancid.in \
+	$(srcdir)/flogin.in $(srcdir)/fnlogin.in $(srcdir)/fnrancid.in \
+	$(srcdir)/francid.in $(srcdir)/grancid.in $(srcdir)/hlogin.in \
+	$(srcdir)/hrancid.in $(srcdir)/htlogin.in \
+	$(srcdir)/htrancid.in $(srcdir)/jerancid.in \
+	$(srcdir)/jlogin.in $(srcdir)/jrancid.in $(srcdir)/mrancid.in \
+	$(srcdir)/mrvlogin.in $(srcdir)/mrvrancid.in \
+	$(srcdir)/mtlogin.in $(srcdir)/mtrancid.in $(srcdir)/nlogin.in \
+	$(srcdir)/nrancid.in $(srcdir)/nslogin.in \
+	$(srcdir)/nsrancid.in $(srcdir)/nxrancid.in $(srcdir)/par.in \
+	$(srcdir)/prancid.in $(srcdir)/rancid.in $(srcdir)/rivlogin.in \
 	$(srcdir)/rivrancid.in $(srcdir)/rrancid.in \
 	$(srcdir)/srancid.in $(srcdir)/tlogin.in $(srcdir)/tntlogin.in \
 	$(srcdir)/tntrancid.in $(srcdir)/trancid.in \
@@ -78,13 +77,13 @@ mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
 CONFIG_HEADER = $(top_builddir)/include/config.h
 CONFIG_CLEAN_FILES = control_rancid par agmrancid alogin arancid \
 	anlogin anrancid arrancid atrancid avologin avorancid blogin \
-	brancid cat5rancid clogin rancid complogin comprancid \
-	cssrancid elogin erancid f5rancid f10rancid flogin francid \
-	fnlogin fnrancid grancid hlogin hrancid htlogin htrancid \
-	jlogin jrancid jerancid mrancid mrvlogin mrvrancid mtrancid \
-	mtlogin nlogin nrancid nslogin nsrancid nxrancid prancid \
-	rivlogin rivrancid rrancid srancid tlogin tntlogin tntrancid \
-	trancid xilogin xirancid xrancid xrrancid zrancid
+	brancid cat5rancid clogin rancid complogin cssrancid elogin \
+	erancid f5rancid f10rancid flogin francid fnlogin fnrancid \
+	grancid hlogin hrancid htlogin htrancid jlogin jrancid \
+	jerancid mrancid mrvlogin mrvrancid mtrancid mtlogin nlogin \
+	nrancid nslogin nsrancid nxrancid prancid rivlogin rivrancid \
+	rrancid srancid tlogin tntlogin tntrancid trancid xilogin \
+	xirancid xrancid xrrancid zrancid
 CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)" "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
@@ -258,8 +257,8 @@ bin_SCRIPTS = agmrancid alogin anlogin anrancid arancid arrancid \
 	mtlogin mtrancid nlogin nrancid nslogin nsrancid nxrancid par \
 	prancid rancid-fe rancid rivlogin rivrancid rrancid srancid \
 	tlogin tntlogin tntrancid trancid xilogin xirancid xrancid \
-	xrrancid zrancid complogin comprancid lg.cgi lgform.cgi \
-	rancid-cvs rancid-fe rancid-run
+	xrrancid zrancid complogin lg.cgi lgform.cgi rancid-cvs \
+	rancid-fe rancid-run
 # XXX hack for the grancid to get pkglibdir, see corresponding XXX below
 bin_in = grancid.in
 EXTRA_DIST = lg.cgi.in lgform.cgi.in rancid-cvs.in rancid-fe.in rancid-run.in
@@ -365,8 +364,6 @@ clogin: $(top_builddir)/config.status $(srcdir)/clogin.in
 rancid: $(top_builddir)/config.status $(srcdir)/rancid.in
 	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@
 complogin: $(top_builddir)/config.status $(srcdir)/complogin.in
-	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@
-comprancid: $(top_builddir)/config.status $(srcdir)/comprancid.in
 	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@
 cssrancid: $(top_builddir)/config.status $(srcdir)/cssrancid.in
 	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@
