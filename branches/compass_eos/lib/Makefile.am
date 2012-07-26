@@ -88,8 +88,8 @@ $(pkglib_in:%.in=%): Makefile $(top_builddir)/config.status
 	mv $@.tmp $@
 # XXX there must be a better way to produce these dependencies, perhaps in
 #     configure.
-arbor: arbor.in
-eos: eos.in
-ios: ios.in
-junos: junos.in
-rancid: rancid.in
+arbor.pm: arbor.pm.in
+eos.pm: eos.pm.in
+ios.pm: ios.pm.in
+junos.pm: junos.pm.in
+rancid.pm: rancid.pm.in
