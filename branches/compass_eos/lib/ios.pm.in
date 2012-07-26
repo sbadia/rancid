@@ -61,8 +61,18 @@ our $found_version;
 our $found_env;
 our $found_diag;
 our $config_register;			# configuration register value
+
+our %hwbuf;				# defined in ShowContCbus
+our %hwmemc;				# defined in ShowContCbus
+our %hwmemd;				# defined in ShowContCbus
+our %hwucode;				# defined in ShowContCbus
 our $supbootdisk;			# skip sup-bootflash if sup-bootdisk
 					# worked
+our $type;				# device model, from ShowVersion
+our %ucode;				# defined in ShowContCbus
+
+our $ssp;				# SSP/SSE info, from ShowVersion
+our $sspmem;				# SSP/SSE info, from ShowVersion
 
 our $C0;				# output formatting control
 our $E0;
@@ -85,26 +95,42 @@ sub init {
     $found_version = 0;
     $found_env = 0;
     $found_diag = 0;
+    $config_register = undef;		# configuration register value
 
-    my($config_register);		# configuration register value
-    my($supbootdisk) = 0;		# skip sup-bootflash if sup-bootdisk
+    # XXX init %hwbuf;			# defined in ShowContCbus
+    # XXX init %hwmemc;			# defined in ShowContCbus
+    # XXX init %hwmemd;			# defined in ShowContCbus
+    # XXX init %hwucode;			# defined in ShowContCbus
+    $supbootdisk = 0;			# skip sup-bootflash if sup-bootdisk
 					# worked
+    $type = undef;			# device model, from ShowVersion
+    # XXX init %ucode;			# defined in ShowContCbus
 
-# XXX is this the right place for this?
-# XXX can the content line move to the lib?
+    $ssp = 0;				# SSP/SSE info, from ShowVersion
+    $sspmem = undef;			# SSP/SSE info, from ShowVersion
+
+    $C0 = 0;				# output formatting control
+    $E0 = 0;
+    $H0 = 0;
+    $I0 = 0;
+    $DO_SHOW_VLAN = 0;
+
+    # XXX is this the right place for this?
+    # XXX can the content line move to the lib?
     ProcessHistory("","","","!RANCID-CONTENT-TYPE: cisco\n!\n");
     ProcessHistory("COMMENTS","keysort","B0","!\n");
     ProcessHistory("COMMENTS","keysort","D0","!\n");
     ProcessHistory("COMMENTS","keysort","F0","!\n");
     ProcessHistory("COMMENTS","keysort","G0","!\n");
+
     0;
 }
 
 # This routine parses "show version"
 sub ShowVersion {
     my($INPUT, $OUTPUT, $cmd) = @_;
+    my($slave, $slaveslot);
     print STDERR "    In ShowVersion: $_" if ($debug);
-    my($slaveslot);
 
     while (<$INPUT>) {
 	tr/\015//d;
@@ -317,7 +343,7 @@ sub ShowVersion {
 	    next;
 	}
 	if (/(\S+) Silicon\s*Switch Processor/) {
-	    if (!defined($C0)) {
+	    if (!$C0) {
 		$C0 = 1; ProcessHistory("COMMENTS","keysort","C0","!\n");
 	    }
 	    ProcessHistory("COMMENTS","keysort","C2","!SSP: $1\n");
@@ -351,7 +377,7 @@ sub ShowVersion {
 	    next;
 	}
 	if (/^WARNING/) {
-	    if (!defined($I0)) {
+	    if (!$I0) {
 		$I0 = 1;
 		ProcessHistory("COMMENTS","keysort","I0","!\n");
 	    }
@@ -372,6 +398,7 @@ sub ShowVersion {
 # This routine parses "show redundancy"
 sub ShowRedundancy {
     my($INPUT, $OUTPUT, $cmd) = @_;
+    my($slave, $slaveslot);
     print STDERR "    In ShowRedundancy: $_" if ($debug);
 
     while (<$INPUT>) {
@@ -482,12 +509,12 @@ sub ShowEnv {
 	    s/^$1\s{$len}//;
 	}
 
-	if (!defined($E0)) {
+	if (!$E0) {
 	    $E0 = 1;
 	    ProcessHistory("COMMENTS","keysort","E0","!\n");
 	}
 	if (/^Arbiter type (\d), backplane type (\S+)/) {
-	    if (!defined($C0)) {
+	    if (!$C0) {
 		$C0 = 1; ProcessHistory("COMMENTS","keysort","C0","!\n");
 	    }
 	    ProcessHistory("COMMENTS","keysort","C1",
@@ -612,7 +639,7 @@ sub ShowBoot {
 	}
 
 	next if /CONFGEN variable/;
-	if (!defined($H0)) {
+	if (!$H0) {
 	    $H0 = 1; ProcessHistory("COMMENTS","keysort","H0","!\n");
 	}
 	if ($type !~ /^(12[04]|7)/) {
@@ -781,6 +808,7 @@ sub DirSlotN {
 # This routine parses "show controllers"
 sub ShowContAll {
     my($INPUT, $OUTPUT, $cmd) = @_;
+    my($INT);
     # Skip if this is a 70[01]0, 7500, or 12000.
     print STDERR "    In ShowContAll: $_" if ($debug);
 
@@ -847,10 +875,12 @@ sub ShowContAll {
 # Some of this is printed out in ShowDiagbus.
 sub ShowContCbus {
     my($INPUT, $OUTPUT, $cmd) = @_;
+    my($interface, $slot);
     # Skip if this is not a 7000 or 7500.
     print STDERR "    In ShowContCbus: $_" if ($debug);
 
     while (<$INPUT>) {
+	my(%board, %hwver);
 	tr/\015//d;
 	last if (/^$prompt/);
 	next if (/^(\s*|\s*$cmd\s*)$/);
@@ -932,6 +962,7 @@ sub ShowDebug {
 # This will create arrays for hw info.
 sub ShowDiagbus {
     my($INPUT, $OUTPUT, $cmd) = @_;
+    my($board, $slot);
     # Skip if this is not a 7000, 70[01]0, or 7500.
     print STDERR "    In ShowDiagbus: $_" if ($debug);
 
@@ -957,8 +988,8 @@ sub ShowDiagbus {
 	    next;
 	} elsif (/^\s*(.*Processor.*|.*controller|.*controler|.*Chassis Interface)(, FRU\s?:.*)?, HW rev (\S+), board revision (\S+)/i) {
 	    $board = $1;
-	    $hwver = $3;
-	    $boardrev = $4;
+	    my($hwver) = $3;
+	    my($boardrev) = $4;
 	    if ($board =~ /Processor/) {
 		if ($board =~ /7000 Route\/Switch/) {
 		    $board = "RSP7000";
@@ -978,7 +1009,7 @@ sub ShowDiagbus {
 		$board = $1;
 	    }
 	    # hwucode{$slot} defined in ShowContCbus
-	    if (defined $hwucode{$slot}) {
+	    if (defined($hwucode{$slot})) {
 		ProcessHistory("SLOT","","","!\n!Slot $slot/$board: hvers $hwver rev $boardrev ucode $hwucode{$slot}\n");
 	    } else {
 		ProcessHistory("SLOT","","","!\n!Slot $slot/$board: hvers $hwver rev $boardrev\n");
@@ -998,9 +1029,9 @@ sub ShowDiagbus {
 	    ProcessHistory("SLOT","","","!Slot $slot/$board: $1\n") &&
 	    next;
 	if (/PA Bay (\d) Information/) {
-	    $pano = $1;
+	    my($pano) = $1;
 	    if ("PA" =~ /$board/) {
-		($s,$c) = split(/\//,$board);
+		my($s,$c) = split(/\//,$board);
 		$board = "$s/$c/PA $pano";
 	    } else {
 		$board =~ s/\/PA \d//;
@@ -1027,6 +1058,7 @@ sub ShowDiagbus {
 # This will create arrays for hw info.
 sub ShowDiag {
     my($INPUT, $OUTPUT, $cmd) = @_;
+    my($fn, $slot, $WIC);
     print STDERR "    In ShowDiag: $_" if ($debug);
 
     while (<$INPUT>) {
@@ -1070,7 +1102,7 @@ REDUX:	tr/\015//d;
 	    next;
 	}
 	if (/^\s+MAIN:\s* type \S+,\s+(.*)/) {
-	    local($part) = $1;
+	    my($part) = $1;
 	    $_ = <$INPUT>;
 	    if (/^\s+(HW version|Design Release) (\S+)\s+S\/N (\S+)/i) {
 		ProcessHistory("SLOT","keysort","AM","!Slot $slot/MAIN: part $part, serial $3\n");
@@ -1085,11 +1117,11 @@ REDUX:	tr/\015//d;
 	    $_ = <$INPUT>;
 	    tr/\015//d;
 	    if (/^\s+(.+)$/) {
-		local($part) = $1;
+		my($part) = $1;
 		$_ = <$INPUT>;
 		tr/\015//d;
 		if (/^\s+dev (.*)$/) {
-		    local($dev) = $1;
+		    my($dev) = $1;
 		    $_ = <$INPUT>;
 		    if (/^\s+S\/N (\S+)/) {
 			ProcessHistory("SLOT","keysort","AM","!Slot $slot/MAIN: part $part, dev $dev, serial $1\n");
@@ -1132,7 +1164,7 @@ REDUX:	tr/\015//d;
 	    next;
 	}
 	if (/^\s+PCA:\s+(.*)/) {
-	    local($part) = $1;
+	    my($part) = $1;
 	    $_ = <$INPUT>;
 	    if (/^\s+(HW version|design release) (\S+)\s+S\/N (\S+)/i) {
 		ProcessHistory("SLOT","keysort","C1","!Slot $slot/PCA: part $part, serial $3\n");
@@ -1144,7 +1176,7 @@ REDUX:	tr/\015//d;
 	    next;
 	}
 	if (/^\s+MBUS: .*\)\s+(.*)/) {
-	    local($tmp) = "!Slot $slot/MBUS: part $1";
+	    my($tmp) = "!Slot $slot/MBUS: part $1";
 	    $_ = <$INPUT>;
 	    /^\s+HW version (\S+)\s+S\/N (\S+)/ &&
 		ProcessHistory("SLOT","keysort","MB1","$tmp, serial $2\n") &&
@@ -1176,7 +1208,7 @@ REDUX:	tr/\015//d;
 	    next;
 	}
 	if (/^\s+DRAM size: (\d+)/) {
-	    local($dram) = $1 / 1048576;
+	    my($dram) = $1 / 1048576;
 	    $_ = <$INPUT>;
 	    if (/^\s+FrFab SDRAM size: (\d+)/) {
 		ProcessHistory("SLOT","keysort","MB4","!Slot $slot/MBUS: $dram Mbytes DRAM, "
@@ -1201,13 +1233,13 @@ REDUX:	tr/\015//d;
 		$WIC = "/$2";
 	    } elsif ($1 eq "Encryption AIM") {
 		$slot = "$2";
-		undef($WIC);
+		$WIC = undef;
 		ProcessHistory("SLOT","","","!\n");
 		ProcessHistory("SLOT","keysort","B","!Slot $slot: type $1\n");
 		next;
 	    } else {
 		$slot = $2;
-		undef($WIC);
+		$WIC = undef;
 	    }
 	    $_ = <$INPUT>; tr/\015//d;
 
@@ -1241,7 +1273,7 @@ REDUX:	tr/\015//d;
 	    #
 	    # handle WICs lacking "daughter card" in the 2nd line of their
 	    # show diag o/p
-	    if (defined($WIC)) {
+	    if (length($WIC)) {
 		s/^\s+//;
 		ProcessHistory("SLOT","keysort","B","!Slot $slot$WIC: type $_");
 	    }
@@ -1620,7 +1652,7 @@ sub ShowShun {
 sub WriteTerm {
     my($INPUT, $OUTPUT, $cmd) = @_;
     print STDERR "    In WriteTerm: $_" if ($debug);
-    my($lineauto,$comment,$linecnt) = (0,0,0);
+    my($lineauto, $comment, $linecnt) = (0,0,0);
 
     while (<$INPUT>) {
 	tr/\015//d;
@@ -1805,7 +1837,8 @@ sub WriteTerm {
 	    next;
 	}
 	# ASA/PIX keys in more system:running-config
-	if (/^( pre-shared-key | key |failover key ).*/ && $filter_pwds >= 1) {
+	if (/^(( ikev1)? pre-shared-key | key |failover key ).*/ &&
+	    $filter_pwds >= 1) {
 	    ProcessHistory("","","","!$1 <removed> $'"); next;
 	}
 	# ASA/PIX keys in more system:running-config
@@ -1938,7 +1971,7 @@ sub WriteTerm {
 	}
 	# order ntp peers/servers
 	if (/^ntp (server|peer) (\d+)\.(\d+)\.(\d+)\.(\d+)/) {
-	    $sortkey = sprintf("$1 %03d%03d%03d%03d",$2,$3,$4,$5);
+	    my($sortkey) = sprintf("$1 %03d%03d%03d%03d",$2,$3,$4,$5);
 	    ProcessHistory("NTP","keysort",$sortkey,"$_");
 	    next;
 	}
