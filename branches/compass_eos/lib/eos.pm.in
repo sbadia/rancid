@@ -85,7 +85,7 @@ sub ShowConfig {
     my($linecnt) = 0;
     print STDERR "    In ShowConfig: $_" if ($debug);
 
-    while (<INPUT>) {
+    while (<$INPUT>) {
 	tr/\015//d;
 	last if (/^$prompt/);
 	next if (/^(\s*|\s*$cmd\s*)$/);
@@ -126,7 +126,7 @@ sub ShowModule {
     my($INPUT, $OUTPUT, $cmd) = @_;
     print STDERR "    In ShowModule: $_" if ($debug);
 
-    while (<INPUT>) {
+    while (<$INPUT>) {
 	tr/\015//d;
 	last if (/^$prompt/);
 	return(1) if (/^-+\^/);			# missing command XXX
@@ -166,7 +166,7 @@ sub ShowInventory {
     my($INPUT, $OUTPUT, $cmd) = @_;
     print STDERR "    In ShowInventory: $_" if ($debug);
 
-    while (<INPUT>) {
+    while (<$INPUT>) {
 	tr/\015//d;
 	last if (/^$prompt/);
 	return(1) if (/^-+\^/);			# missing command XXX
@@ -194,7 +194,7 @@ sub ShowSoftware {
     my($INPUT, $OUTPUT, $cmd) = @_;
     print STDERR "    In ShowSoftware: $_" if ($debug);
 
-    while (<INPUT>) {
+    while (<$INPUT>) {
 	tr/\015//d;
 	last if (/^$prompt/);
 	return(1) if (/^-+\^/);			# missing command XXX
@@ -216,7 +216,7 @@ sub ShowVersion {
     my($INPUT, $OUTPUT, $cmd) = @_;
     print STDERR "    In ShowVersion: $_" if ($debug);
 
-    while (<INPUT>) {
+    while (<$INPUT>) {
 	tr/\015//d;
 	last if (/^$prompt/);
 	return(1) if (/^-+\^/);			# missing command XXX
