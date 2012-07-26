@@ -99,11 +99,11 @@ compass;login;complogin
 compass;module;eos
 compass;command;eos::ShowVersion;show version
 compass;command;eos::ShowVersion;show system build-parameters
-compass;command;eos::ShowVersion;show system software images 
-compass;command;eos::ShowVersion;show system software packages
-compass;command;eos::ShowVersion;show system module
-compass;command;eos::ShowVersion;show inventory
-compass;command;eos::ShowVersion;show configuration detail
+compass;command;eos::ShowSoftware;show system software images
+compass;command;eos::ShowSoftware;show system software packages
+compass;command;eos::ShowModule;show system module 
+compass;command;eos::ShowInventory;show inventory
+compass;command;eos::ShowConfig;show configuration detail 
 #
 css;script;cssrancid
 #
