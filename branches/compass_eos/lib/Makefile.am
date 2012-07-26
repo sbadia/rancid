@@ -47,7 +47,7 @@
 
 AUTOMAKE_OPTIONS=foreign no-dependencies
 
-pkglib_LIBRARIES = rancid.pm arbor.pm ios.pm junos.pm
+pkglib_LIBRARIES = rancid.pm arbor.pm eos.pm ios.pm junos.pm
 RANLIB= :
 
 #EXTRA_DIST= lg.cgi.in lgform.cgi.in rancid-cvs.in rancid-fe.in rancid-run.in
