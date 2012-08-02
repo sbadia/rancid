@@ -152,6 +152,8 @@ sub ShowModule {
 			   "! --------------------------------------\n");
 	    next;
 	}
+	# XXX this line moves around and is not necessary
+	next if (/TIME IN/i);
 
 	/^\d+\// && s/(\d+\/\S+\s+\S+\s+\S+\s+\S+).*/$1/;
 
