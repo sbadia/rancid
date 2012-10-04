@@ -120,6 +120,12 @@ $(bin_in:%.in=%): Makefile $(top_builddir)/config.status
 #     configure.
 grancid: grancid.in
 
+grancid: Makefile $(srcdir)/grancid.in
+	rm -f grancid grancid.tmp; \
+	$(auto_edit) $(srcdir)/grancid.in >grancid.tmp; \
+	chmod +x grancid.tmp; \
+	mv grancid.tmp grancid
+
 lg.cgi: Makefile $(srcdir)/lg.cgi.in
 	rm -f lg.cgi lg.cgi.tmp; \
 	$(auto_edit) $(srcdir)/lg.cgi.in >lg.cgi.tmp; \

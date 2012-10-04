@@ -1,10 +1,9 @@
-#! @PERLV_PATH@
+#! /usr/bin/perl
 ##
-## $Id$
-## hacked version of Hank's rancid - this one tries to deal with Bay's.
+## $Id: jrancid.in 2160 2010-03-15 20:33:15Z root $
 ##
-## @PACKAGE@ @VERSION@
-## Copyright (c) @COPYYEARS@ by Terrapin Communications, Inc.
+## rancid 2.3.4
+## Copyright (c) 1997-2008 by Terrapin Communications, Inc.
 ## All rights reserved.
 ##
 ## This code is derived from software contributed to and maintained by
@@ -41,34 +40,40 @@
 ## ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 ## POSSIBILITY OF SUCH DAMAGE.
 # 
+# Amazingly hacked version of Hank's rancid - this one tries to
+# deal with Junipers.
+#
 #  RANCID - Really Awesome New Cisco confIg Differ
 #
-# usage: brancid [-dltCV] [-f filename | hostname]
+# usage: jrancid [-dV] [-l] [-f filename | hostname]
 #
 use Getopt::Std;
-getopts('dflt:CV');
+getopts('dflV');
 if ($opt_V) {
-    print "@PACKAGE@ @VERSION@\n";
+    print "rancid 2.3.4\n";
     exit(0);
 }
-$log = $opt_l;
 $debug = $opt_d;
+$log = $opt_l;
 $file = $opt_f;
 $host = $ARGV[0];
+
 $clean_run = 0;
 $found_end = 0;
-$timeo = 90;				# blogin timeout in seconds
+$timeo = 120;				# clogin timeout in seconds
 
 my(@commandtable, %commands, @commands);# command lists
 my($aclsort) = ("ipsort");		# ACL sorting mode
 my($filter_commstr);			# SNMP community string filtering
 my($filter_pwds);			# password filtering mode
+my($ShowChassisSCB);			# Only run ShowChassisSCB() once
+my $prompt = "#";
 
 # This routine is used to print out the router configuration
 sub ProcessHistory {
     my($new_hist_tag,$new_command,$command_string,@string) = (@_);
     if ((($new_hist_tag ne $hist_tag) || ($new_command ne $command))
-	&& scalar(%history)) {
+	&& defined %history) {
 	print eval "$command \%history";
 	undef %history;
     }
@@ -164,66 +169,42 @@ sub sortbyipaddr {
     &ipaddrval($a) <=> &ipaddrval($b);
 }
 
-# This routine parses "show config"
-sub ShowConfig {
-    print STDERR "    In ShowConfig: $_" if ($debug);
+###
+### Start of real work
+###
 
-    while (<INPUT>) {
-	tr/\015//d;
-	last if (/^$prompt/);
-	next if (/^(\s*|\s*$cmd\s*)$/);
-	next if (/^Reading configuration information/);
-	next if (/^Can\'t find object or class named \"\-all\"\s*$/);
-	next if (/lock-address .*$/);
-	next if (/^\# *uptime +\d+\s*$/);
-	if (/community label /) {
-	    if ($filter_commstr) {
-		$_ =~ s/community label .*$/community label <removed>/;
-	    }
+#this is the default handler
+sub default_handler {
+
+
+	while(<INPUT>) {
+		last if (/^$prompt/);
+		$_ =~ s/(<password>)[^<]+(<\/password>)/$1removed$2/ if $_ =~ m/^\s*<password>/;
+		print $_;
 	}
-	return(1) if /(invalid command name)/;
-	ProcessHistory("","","","$_");
-    }
-    # ProcessHistory("","","","!$_");
-    if (/exit$/) {
-	$found_end = 1;
-	return(1);
-    }
+
     return(0);
 }
 
-# This routine parses single command's that return no required info
-sub RunCommand {
-    print STDERR "    In RunCommand: $_" if ($debug);
 
-    while (<INPUT>) {
-	tr/\015//d;
-	last if (/^$prompt/);
-	next if (/^(\s*|\s*$cmd\s*)$/);
-	# prompt may have changed
-	if (/\>/) {
-	    $prompt = ($_ =~ /^([^>]+>)/)[0];
-	    $prompt =~ s/([][])/\\$1/g;
-	    last;
-	}
-    }
-    return(0)
-}
+###
+### End of real work
+###
+
+# dummy function
+sub DoNothing {print STDOUT;}
 
 # Main
 @commandtable = (
-	{'bcc'			=> 'RunCommand'},
-	{'show config'		=> 'ShowConfig'},
-	{'show config -all'	=> 'ShowConfig'},
-	{'exit'			=> 'RunCommand'}
+	{'uname -a'					=> 'default_handler'},
+	{'cat /cf/conf/config.xml'					=> 'default_handler'},
 );
 # Use an array to preserve the order of the commands and a hash for mapping
 # commands to the subroutine and track commands that have been completed.
 @commands = map(keys(%$_), @commandtable);
 %commands = map(%$_, @commandtable);
-$commandcnt = scalar(keys %commands);
 
-$commandstr=join(";",@commands);
+$jnx_commands=join(";",@commands);
 $cmds_regexp = join("|", map quotemeta($_), @commands);
 
 if (length($host) == 0) {
@@ -235,107 +216,69 @@ if (length($host) == 0) {
 	exit(1);
     }
 }
-if ($opt_C) {
-    print "blogin -t $timeo -c\'$commandstr\' $host\n";
-    exit(0);
-}
 open(OUTPUT,">$host.new") || die "Can't open $host.new for writing: $!\n";
 select(OUTPUT);
-# make OUTPUT unbuffered if debugging
+# make OUTPUT unbuffered
 if ($debug) { $| = 1; }
 
 if ($file) {
     print STDERR "opening file $host\n" if ($debug);
     print STDOUT "opening file $host\n" if ($log);
-    open(INPUT,"<$host") || die "open failed for $host: $!\n";
+    open(INPUT,"< $host") || die "open failed for $host: $!\n";
 } else {
-    print STDERR "executing blogin -t $timeo -c\"$commandstr\" $host\n" if ($debug);
-    print STDOUT "executing blogin -t $timeo -c\"$commandstr\" $host\n" if ($log);
-    if (defined($ENV{NOPIPE}) && $ENV{NOPIPE} =~ /^YES/i) {
-	system "blogin -t $timeo -c \"$commandstr\" $host </dev/null > $host.raw 2>&1" || die "blogin failed for $host: $!\n";
-	open(INPUT, "< $host.raw") || die "blogin failed for $host: $!\n";
+    print(STDERR "exec m0n0login  -t $timeo -c \"$jnx_commands\" $host\n") if ($debug);
+    print(STDOUT "exec m0n0login  -t $timeo -c \"$jnx_commands\" $host\n") if ($debug);
+
+    if (defined($ENV{NOPIPE})) {
+	system "m0n0login  -t $timeo -c \"$jnx_commands\" $host  </dev/null > $host.raw" || die "m0n0login failed for $host: $!\n";
+	open(INPUT, "< $host.raw") || die "m0n0login failed for $host: $!\n";
     } else {
-	open(INPUT,"blogin -t $timeo -c \"$commandstr\" $host </dev/null |") || die "blogin failed for $host: $!\n";
+	#open(INPUT,"m0n0login root\@$host \"$jnx_commands\" </dev/null |") || die "m0n0login failed for $host: $!\n";
+	open(INPUT,"m0n0login -t $timeo -c \"$jnx_commands\" $host </dev/null |") || die "m0n0login failed for $host: $!\n";
     }
+
 }
 
-# determine ACL sorting mode
-if ($ENV{"ACLSORT"} =~ /no/i) { 
-    $aclsort = ""; 
-} 
-# determine community string filtering mode
-if (defined($ENV{"NOCOMMSTR"}) &&
-    ($ENV{"NOCOMMSTR"} =~ /yes/i || $ENV{"NOCOMMSTR"} =~ /^$/)) {
-    $filter_commstr = 1;
-} else {
-    $filter_commstr = 0;
-}
-# determine password filtering mode
-if ($ENV{"FILTER_PWDS"} =~ /no/i) {
-    $filter_pwds = 0;
-} elsif ($ENV{"FILTER_PWDS"} =~ /all/i) {
-    $filter_pwds = 2;
-} else {
-    $filter_pwds = 1;
-}
-
-ProcessHistory("","","","!RANCID-CONTENT-TYPE: baynet\n!\n");
 TOP: while(<INPUT>) {
-    tr/\015//d;
-    if ( (/\>\s?logout$/) || $found_end ) {
-	$clean_run=1;
-	last;
+
+   while (/$prompt\s*($cmds_regexp)/) {
+    $cmd = $1;
+	print STDERR $cmd if ($debug);
+	print "$prompt".$cmd."\n";
+    if (!defined($prompt)) {
+        $prompt = ($_ =~ /^([^#]+#)/)[0];
+        $prompt =~ s/([][}{)(\\])/\\$1/g;
+        print STDERR ("PROMPT MATCH: $prompt\n") if ($debug);
     }
-    if (/^Error:/) {
-	print STDOUT ("$host blogin error: $_");
-	print STDERR ("$host blogin error: $_") if ($debug);
-	$clean_run=0;
-	last;
+    print STDERR ("HIT COMMAND:$_") if ($debug);
+    if (! defined($commands{$cmd})) {
+        print STDERR "$host: found unexpected command - \"$cmd\"\n";
+        $clean_run = 0;
+        last TOP;
     }
-    while (/>\s*($cmds_regexp)\s*$/) {
-	$cmd = $1;
-	if (!defined($prompt)) {
-	    $prompt = ($_ =~ /^([^>]+>)/)[0];
-	    $prompt =~ s/([][}{)(\\])/\\$1/g;
-	    print STDERR ("PROMPT MATCH: $prompt\n") if ($debug);
-	}
-	print STDERR ("HIT COMMAND:$_") if ($debug);
-	if (! defined($commands{$cmd})) {
-	    print STDERR "$host: found unexpected command - \"$cmd\"\n";
-	    $clean_run = 0;
-	    last TOP;
-	}
-	$rval = &{$commands{$cmd}}(*INPUT, *OUTPUT, $cmd);
-	delete($commands{$cmd});
-	if ($rval == -1) {
-	    $clean_run = 0;
-	    last TOP;
-	}
+    $rval = &{$commands{$cmd}};
+    delete($commands{$cmd});
+    if ($rval == -1) {
+        $clean_run = 0;
+        last TOP;
     }
-}
-print STDOUT "Done $logincmd: $_\n" if ($log);
-# Flush History
-ProcessHistory("","","","");
+    }
+    if (/>\s*quit/) {
+    $clean_run=1;
+    last;
+    }
+
+	print STDERR $_ if ($debug);
+
+
+};
+
 # Cleanup
 close(INPUT);
 close(OUTPUT);
 
-if (defined($ENV{NOPIPE}) && $ENV{NOPIPE} =~ /^YES/i) {
+if (defined($ENV{NOPIPE})) {
     unlink("$host.raw") if (! $debug);
 }
 
 # check for completeness
-if (scalar(%commands) || !$clean_run || !$found_end) {
-    if (scalar(keys %commands) eq $commandcnt) {
-	printf(STDERR "$host: missed cmd(s): all commands\n");
-    } elsif (scalar(%commands)) {
-	printf(STDOUT "$host: missed cmd(s): %s\n", join(',', keys(%commands)));
-	printf(STDERR "$host: missed cmd(s): %s\n", join(',', keys(%commands))) if ($debug);
-    }
-    if (!$clean_run || !$found_end) {
-	print STDOUT "$host: End of run not found\n";
-	print STDERR "$host: End of run not found\n" if ($debug);
-	system("/usr/bin/tail -1 $host.new");
-    }
-    unlink "$host.new" if (! $debug);
-}

@@ -45,7 +45,7 @@ package rancid;
 #  rancid.pm - base/basic rancid procedures
 #
 
-use 5.005;
+use 5.010;
 use strict 'vars';
 use warnings;
 require(Exporter);
@@ -113,7 +113,7 @@ sub rancidinit {
     $found_end = 0;
     $timeo = 90;			# login script timeout in seconds
 
-    $aclsort = ("ipsort");		# ACL sorting mode
+    $aclsort = "ipsort";		# ACL sorting mode
 
     # determine ACL sorting mode
     if (defined($ENV{"ACLSORT"}) && $ENV{"ACLSORT"} =~ /no/i) {
@@ -337,7 +337,12 @@ sub ipsort {
 # These two routines will sort based upon IP addresses
 sub ipaddrval {
     my(@a) = ($_[0] =~ m#^(\d+)\.(\d+)\.(\d+)\.(\d+)$#);
-    $a[3] + 256 * ($a[2] + 256 * ($a[1] +256 * $a[0]));
+    # work around uninitialized values warning, requires perl >= 5.010
+    $a[0] //= 0;
+    $a[1] //= 0;
+    $a[2] //= 0;
+    $a[3] //= 0;
+    $a[3] + 256 * ($a[2] + 256 * ($a[1] + 256 * $a[0]));
 }
 sub sortbyipaddr {
     &ipaddrval($a) <=> &ipaddrval($b);
@@ -345,9 +350,10 @@ sub sortbyipaddr {
 
 # This routine parses a single command that returns no required info.
 sub RunCommand {
+    my($INPUT, $OUTPUT, $cmd) = @_;
     print STDERR "    In RunCommand: $_" if ($debug);
 
-    while (<main::INPUT>) {
+    while (<$INPUT>) {
 	tr/\015//d;
 	last if (/^$prompt/);
     }
