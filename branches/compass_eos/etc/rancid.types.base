@@ -102,7 +102,7 @@ compass;command;eos::ShowVersion;show system build-parameters
 compass;command;eos::ShowSoftware;show system software images
 compass;command;eos::ShowSoftware;show system software packages
 compass;command;eos::ShowModule;show system module 
-compass;command;eos::ShowInventory;show inventory
+compass;command;eos::ShowInventory;show system hardware
 compass;command;eos::ShowConfig;show configuration detail 
 #
 css;script;cssrancid

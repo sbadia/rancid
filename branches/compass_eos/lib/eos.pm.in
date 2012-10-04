@@ -163,7 +163,7 @@ sub ShowModule {
     return(0);
 }
 
-# This routine parses "show inventory"
+# This routine parses "show system hardware"
 sub ShowInventory {
     my($INPUT, $OUTPUT, $cmd) = @_;
     print STDERR "    In ShowInventory: $_" if ($debug);
