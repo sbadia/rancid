@@ -180,9 +180,8 @@ sub ShowInventory {
 
 	return(-1) if /(error: |reading .* failed!)/i;
 
-	next if /hours counter/;
-
-	/^\d+\// && s/\s+\d+\S+$//;
+	# remove trailing whitespace
+	s/\s+$/\n/;
 
 	ProcessHistory("Inventory","","","! $_");
     }
