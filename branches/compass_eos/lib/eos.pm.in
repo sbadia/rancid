@@ -136,6 +136,8 @@ sub ShowModule {
 	next if (/^\# *uptime +\d+\s*$/);
 	return(1) if (/invalid command name/);
 
+	next if (/system date:/i);
+
 	# the table header changes length/formatting with the operational time
 	# stamp.
 	if (/^slot/i) {
