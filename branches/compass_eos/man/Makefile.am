@@ -49,7 +49,7 @@ AUTOMAKE_OPTIONS=foreign no-dependencies
 
 @SET_MAKE@
 
-man_gen_MANS = lg.conf.5 rancid.conf.5 rancid.types.conf.5 lg_intro.1
+man_gen_MANS = lg.conf.5 rancid.3 rancid.conf.5 rancid.types.conf.5 lg_intro.1
 man_nogen_MANS = agmrancid.1 alogin.1 anlogin.1 anrancid.1 arancid.1 \
 		arrancid.1 avologin.1 avorancid.1 blogin.1 brancid.1 \
 		cat5rancid.1 clogin.1 cloginrc.5 control_rancid.1 cssrancid.1 \
@@ -63,7 +63,6 @@ man_nogen_MANS = agmrancid.1 alogin.1 anlogin.1 anrancid.1 arancid.1 \
 		router.db.5 rrancid.1 srancid.1 tlogin.1 tntlogin.1 \
 		xilogin.1 xirancid.1 tntrancid.1 trancid.1 xrancid.1 \
 		xrrancid.1 zrancid.1 \
-		rancid.3 \
 		complogin.1 comprancid.1
 
 man_MANS = $(man_nogen_MANS) $(man_gen_MANS)
