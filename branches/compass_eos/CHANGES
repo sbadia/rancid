@@ -5,7 +5,14 @@
 
 	comprancid: add recognitin of EOS 1.1 end of config marker
 
+	fix install of rancid.types.conf
+
+	ios.pm: fix INPUT reference
+
 	anrancid: add arbor networks module
+
+	implement grancid and rancid.types.{conf,base} collection configuration
+	stuff.
 
 	rancid, ios.pm: kill rx/txspeed on cellular modem cards
 
