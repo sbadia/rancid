@@ -111,7 +111,7 @@ cisco-nx;script;nxrancid
 #
 cisco-xr;script;xrrancid
 #
-compass;script;comprancid
+compass;script;grancid
 compass;login;complogin
 compass;module;eos
 compass;inloop;eos::inloop
