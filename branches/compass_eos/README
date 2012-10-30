@@ -216,12 +216,12 @@ Quick Installation Guide (an example):
    IOS) code.
 
    e.g.: <localstatedir>/<group>/router.db:
-	cisco-router.domain.com:cisco:up
-	adc-mux.domain.com:ezt3:up
-	foundry-switch-router.domain.com:foundry:up
-	juniper-router.domain.com:juniper:up
-	redback-dsl-router.domain.com:redback:down
-	extreme-switch.domain.com:extreme:down
+	cisco-router.domain.com;cisco;up
+	adc-mux.domain.com;ezt3;up
+	foundry-switch-router.domain.com;foundry;up
+	juniper-router.domain.com;juniper;up
+	redback-dsl-router.domain.com;redback;down
+	extreme-switch.domain.com;extreme;down
 
 9) For first-time users or new installations, run bin/rancid-run (with no
    arguments) and check the resulting log file(s) (in logs/*) for errors.
