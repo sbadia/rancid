@@ -119,6 +119,28 @@ TOP: while(<$INPUT>) {
     }
 }
 
+sub ShowAlerts {
+    my($INPUT, $OUTPUT, $cmd) = @_;
+    print STDERR "    In ShowAlerts: $_" if ($debug);
+
+    while (<$INPUT>) {
+	tr/\015//d;
+	last if (/^$prompt/);
+	next if (/^(\s*|\s*$cmd\s*)$/);
+	next if (/^Can\'t find object or class named \"\-all\"\s*$/);
+	next if (/lock-address .*$/);
+	next if (/^\# *uptime +\d+\s*$/);
+	return(1) if (/invalid command name/);
+
+	next if (/system date:/i);
+	next if /% +no entries found/i;
+
+	ProcessHistory("Alerts","","",$_);
+    }
+    ProcessHistory("Alerts","","","!\n");
+    return(0);
+}
+
 # This routine parses "show configuration"
 sub ShowConfig {
     my($INPUT, $OUTPUT, $cmd) = @_;
@@ -177,6 +199,7 @@ sub ShowModule {
 	return(1) if (/invalid command name/);
 
 	next if (/system date:/i);
+	next if /note: there are active alerts/i;
 
 	# the table header changes length/formatting with the operational time
 	# stamp.

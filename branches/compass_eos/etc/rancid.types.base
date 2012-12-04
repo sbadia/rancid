@@ -116,6 +116,7 @@ compass;login;complogin
 compass;module;eos
 compass;inloop;eos::inloop
 compass;command;eos::ShowVersion;show version
+compass;command;eos::ShowAlerts;show system alerts
 compass;command;eos::ShowVersion;show system build-parameters
 compass;command;eos::ShowSoftware;show system software images
 compass;command;eos::ShowSoftware;show system software packages
