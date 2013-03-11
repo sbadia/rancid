@@ -5,6 +5,25 @@
 
 	comprancid: add recognitin of EOS 1.1 end of config marker
 
+	anrancid: fail collection on TCL traceback
+
+	grancid: add -h
+
+	cloginrc(5): remove - from method port example and note that ssh can
+	also take a port argument.
+
+	hlogin: do not use hpuifilter for interactive - Per Olof Olsson
+
+	nxrancid: fail collection if show debug times out - Daniel Schmidt
+
+	rancid, ios.pm: correct strings comparison operator - Vitaly Nikolaev
+
+	hlogin: match Login Name for radius client w/ old code - David Byers
+
+	f5rancid: filter auth-password-encrypted lines, which oscillate
+
+	clogin: match "username" prompt, lowercase u
+
 	fix install of rancid.types.conf
 
 	ios.pm: fix INPUT reference
