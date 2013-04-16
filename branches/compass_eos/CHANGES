@@ -5,6 +5,16 @@
 
 	comprancid: add recognitin of EOS 1.1 end of config marker
 
+	nlogin: add code to filter more prompts in run_commands.  no complaints
+	from users; hope this is right as I have no way to test it.
+
+	hpuifilter: New HP2920-switches use <ESC>[6n (ansi u7) - Per-Olof Olsson
+
+	ios.pm: some c3750 stack-specific clean-up - Terry Kennedy
+
+	ios.pm: add show switch detail, show sdm prefer, show system mtu -
+	Terry Kennedy
+
 	anrancid: fail collection on TCL traceback
 
 	grancid: add -h
